@@ -1,6 +1,6 @@
 # Make-pole-plate-on-body-
 ###----------------------------------------------------------------------------------------------------------------------------------------------###
-The copyright of this code on Yongha GI in BMPL(Bio Medical Physic Laboratory) in Korea UV(http://www.korea.ac.kr/mbshome/mbs/university/index.do)  
+The copyright of this code on Yongha GI in BMPL(Bio Medical Physic Laboratory) in Korea Univ(http://www.korea.ac.kr/mbshome/mbs/university/index.do)  
 
 Permission is hereby granted, free of charge. 
 So any body can use, copy, modify, merge, publish, distribute, sublicense and sell without restriction.
