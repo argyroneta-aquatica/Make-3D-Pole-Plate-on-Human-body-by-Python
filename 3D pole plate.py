@@ -10,6 +10,7 @@ import numpy as np
 from scipy import interpolate
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import threading
 
 ##-----------패러미터--------------------------------------------------+
 s=0.1 #폐곡선 표면부터 극판까지의 거리 
@@ -78,7 +79,6 @@ def cor(p):
             c=[]
             for i in range(len(b)):
                 c.append(b[i][2:])
-            print(c)
             cx=float(c[0])
             cy=float(c[1])
             cz=float(c[2])
@@ -487,21 +487,44 @@ def pick_side(a) : #각 어레이의 첫점과 끝점을 추출하여, 극판 �
     a_list.append(a[0][0])
     return a_list
     
-#--------------------MAIN--------------------------------------------+    
-##----------- 따블 클릭할 때 ---------------------------------------+
+
+#-------------------클릭----------------------------------------------+
+time = None #클릭 후 시간을 세기위한 장치 
 def onclick(event):
-    if event.dblclick:
+    time_interval = 0.25 #0.25초 이내에 더블클릭해야 인식함 
+    global time
+    if event.button==3: #우클릭시
         p=ax.format_coord(event.xdata,event.ydata) 
         #matplotlib 내장함수. 클릭 위치의 좌표 string으로 추출 
-        print(p)         
         kx,ky,kz=cor(p)
         ax.scatter(kx, ky, kz, color='green')
-        if event.button==3: #우클릭시 
-            pan_3d(kx,ky,kz,s,d,a)
-        elif event.button==1: #좌클릭시 
-            pan(kx,ky,s,d,a)
-        plt.show()
-        
+        if time is None:
+            print(p)
+            time = threading.Timer(time_interval, on_singleclick, [event,kx,ky,kz,s,d,a]) #arg를 튜플형태로 넣어서 싱글클릭에 넣는듯? 
+            time.start()
+            
+        if event.dblclick:
+            print(p)
+            time.cancel()
+            on_dblclick(event,kx,ky,kz,s,d,a)
+            
+
+#--------------------MAIN--------------------------------------------+    
+##----------- 따블 클릭할 때 ---------------------------------------+
+def on_dblclick(event,x,y,z,s,d,a):
+    global time
+    print("You double-clicked", event.button, event.xdata, event.ydata)
+    time = None
+    pan_3d(x,y,z,s,d,a)
+
+##----------- 싱글 클릭할 때 ---------------------------------------+
+
+def on_singleclick(event,x,y,z,s,d,a):
+    global t
+    print("You single-clicked", event.button, event.xdata, event.ydata)
+    time = None
+    pan(x,y,z,s,d,a)
+
 cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
 #-------------------------------------------------------------------------
