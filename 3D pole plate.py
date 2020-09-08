@@ -11,63 +11,66 @@ from scipy import interpolate
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import threading
+from scipy.linalg import norm
 
 ##-----------패러미터--------------------------------------------------+
 s=0.1 #폐곡선 표면부터 극판까지의 거리 
 d=0.1 #극판 두께
 a=0.5 #극판의 반지름 
-div=400 #옆면을 나눈 수
+div=300 #옆면을 나눈 수
 div_z=300 #축을 나눈 수 
-#-------------폐곡면-----------------------------------------+
-x = np.array([9.5, 13, 14, 12.5, 10])
-y = np.array([12, 10, 14.5, 14, 12])
 
-# x 와 x[0] array 를 합치는 것(처음이랑 끝을 이어서 폐곡선 만든 것) 
-x = np.r_[x, x[0]]
-y = np.r_[y, y[0]]
-
-# x,y 사이사이 값에 추가 적인 값을 넣어, 스무스한 곡선을 만드는 것 
-tck, u = interpolate.splprep([x, y], s=0, per=True)
-# per=1 이면 폐곡선으로 인터폴 레이션 한다
-
-# 스무스한 곡선에서 1000의 점 빼기 
-xi, yi = interpolate.splev(np.linspace(0, 1, div), tck)
-
-#z축 추가 및, 메쉬를 짜기위한 xi, yi 변형
-zi = np.linspace(0, 6, div_z)
-z_grid=[]
-for i in range(len(zi)):
-    z_list=[zi[i]]
-    z_grid.append(z_list)
-z_grid_1=np.array(z_grid)
-x_list=[xi]
-x_grid=x_list*len(zi)
-x_grid_1=np.array(x_grid)
-y_list=[yi]
-y_grid=y_list*len(zi)
-y_grid_1=np.array(y_grid)
-#------------폐곡선 라인 벡터 만들기 (반시계 방향)--------------------+
-vector_1=[]
-for i in range(len(xi)):
-    vector_1.append([xi[i],yi[i]])
-l=np.array(vector_1)
-cur_v=[]
-for i in range(len(l)):
-    if i<div-1:
-        cur_v.append(l[i+1]-l[i])
-    
-    else:
-        cur_v.append(l[0]-l[i])
-#---------폐곡면 그래프 그리기-----------------------------------+
+#----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
-plt.xlim(9,15)
-plt.ylim(9,15)
-ax.set_zlim(0,6)
-ax.plot_surface(x_grid_1, y_grid_1, z_grid_1, color='aqua' ,alpha=0.2)
+plt.xlim(-5,5) #x 축 범위
+plt.ylim(-5,5) 
+ax.set_zlim(-5,5)
+
+#-------------몸 곡면(구)-----------------------------------------+
+def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중심 좌표 
+    theta = np.linspace(0, 2 * np.pi, div)
+    z = np.linspace(center_z-radius, center_z+radius, div_z)
+    radi=[]
+    z_array=[]
+    for i in range(len(z)):
+        r=(radius**2-abs(z[i]-center_z)**2)**0.5
+        radi.append(r)
+        z_array.append(np.array([z[i]]))
+    
+    radi=np.array(radi)
+    z_array=np.array(z_array)
+    x = np.outer(radi, np.cos(theta))+center_x
+    y = np.outer(radi, np.sin(theta))+center_y
+    ax.plot_surface(x, y, z_array, color='yellow',alpha=0.5, shade=3)
+    return x,y,z_array
+
+##----------중요!!------------------------------------------------+
+    
+xi, yi, zi = body_surface(5,0,0,0) # xi, yi, zi 는 이 전체 알고리즘에서 surface의 array를 의미한다. 
+    
+
+#------------폐곡선 라인 벡터 만들기 (반시계 방향)--------------------+
+def line_vector(x,y,z): #x,y,z 는 모두 array 이다
+    list_v=[]
+    for i in range(len(z)): #len(z)=div_z
+        vector=[]
+        cur_v=[]
+        for j in range(len(x[i])): #len(x[i])=div
+            vector.append(np.array([xi[i][j],yi[i][j]])) #위치벡터
+        for j in range(len(x[i])): #len(x[i])=div
+            if j<div-1:
+                cur_v.append(vector[j+1]-vector[j])
+            
+            else:
+                cur_v.append(vector[0]-vector[j])
+        list_v.append(cur_v)
+    list_v=np.array(list_v)
+    return list_v
+list_v=line_vector(xi,yi,zi) #3차원 array 이다 div_z*div*2 개 짜리
 
 #------------좌표추출-------------------------------------------+
 def cor(p):
@@ -83,8 +86,8 @@ def cor(p):
             cy=float(c[1])
             cz=float(c[2])
             i,j=distance(cx,cy,cz)
-            kx=xi[j]
-            ky=yi[j]
+            kx=xi[i][j]
+            ky=yi[i][j]
             kz=zi[i]
             return kx,ky,kz
     else :
@@ -105,33 +108,70 @@ def distance(x,y,z):
         d_1.append(c)
     e_1=d_1.index(min(d_1))
     d_2=[]
-    for i in range(len(xi)):
-        c=(x-xi[i])**2+(y-yi[i])**2
+    for i in range(len(xi[e_1])):
+        c=(x-xi[e_1][i])**2+(y-yi[e_1][i])**2
         d_2.append(c)
     e_2=d_2.index(min(d_2))
-    return e_1, e_2    
+    return e_1, e_2  #z가 몇번째인지 추출하고, x,y를 추출 하는 것이다  
 '''리턴값을 e로해서, 좌표자체를 특정하는게 아니라 좌표가 리스트에서 존재하는 
 위치를 특정하는거임 여기서 e_1은 z의 좌표 e_2 x,y 의 좌표 '''
 
 #-----------접선그리기--------------------------------------------+
-def tan(x,y,z):
-    j, k=distance(x,y,z)
-    if 0 < k <div-1:
-        m1=(yi[k+1]-yi[k])/(xi[k+1]-xi[k])
-        m2=(yi[k]-yi[k-1])/(xi[k]-xi[k-1])
+def tan_yx(x,y,z): #dy/dx 
+    i, j=distance(x,y,z)
+    if 0 < j <div-1:
+        m1=(yi[i][j+1]-yi[i][j])/(xi[i][j+1]-xi[i][j])
+        m2=(yi[i][j]-yi[i][j-1])/(xi[i][j]-xi[i][j-1])
         m=(m1+m2)/2
         return m
-    elif k == 0 :
-        m1=(yi[1]-yi[0])/(xi[1]-xi[0])
-        m2=(yi[-1]-yi[-2])/(xi[-1]-xi[-2])
-        m=(2*m1 + m2)/3
+    elif j == 0 :
+        m1=(yi[i][1]-yi[i][0])/(xi[i][1]-xi[i][0])
+        m2=(yi[i][0]-yi[i][-1])/(xi[i][0]-xi[i][-1])
+        m=(m1 + m2)/2
         return m
-    elif k == div-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
-        m1=(yi[1]-yi[0])/(xi[1]-xi[0])
-        m2=(yi[-1]-yi[-2])/(xi[-1]-xi[-2])
-        m=(m1 + 2*m2)/3
+    elif j == div-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
+        m1=(yi[i][0]-yi[i][j])/(xi[i][0]-xi[i][j])
+        m2=(yi[i][j]-yi[i][j-1])/(xi[i][j]-xi[i][j-1])
+        m=(m1 + m2)/2
         return m 
 
+def tan_xz(x,y,z): # dx/dz 
+    i, j=distance(x,y,z)
+    if 0 < i <div_z-1:
+        m1=(xi[i+1][j]-xi[i][j])/(zi[i+1]-zi[i])
+        m2=(xi[i][j]-xi[i-1][j])/(zi[i]-zi[i-1])
+        m=(m1+m2)/2
+        return m
+    elif i == 0 :
+        m1=(xi[1][j]-xi[0][j])/(zi[1]-zi[0])
+        m2=(xi[0][j]-xi[-1][j])/(zi[0]-zi[-1])
+        m=(m1 + m2)/2
+        return m
+    elif i == div_z-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
+        m1=(xi[0][j]-xi[i][j])/(zi[0]-zi[i])
+        m2=(xi[i][j]-xi[i-1][j])/(zi[i]-zi[i-1])
+        m=(m1 + m2)/2
+        return m 
+    
+def tan_yz(x,y,z): # dy/dz 
+    i, j=distance(x,y,z)
+    if 0 < i <div_z-1:
+        m1=(yi[i+1][j]-yi[i][j])/(zi[i+1]-zi[i])
+        m2=(yi[i][j]-yi[i-1][j])/(zi[i]-zi[i-1])
+        m=(m1+m2)/2
+        return m
+    elif i == 0 :
+        m1=(yi[1][j]-yi[i][j])/(zi[1]-zi[i])
+        m2=(yi[i][j]-yi[-1][j])/(zi[i]-zi[-1])
+        m=(m1 + m2)/2
+        return m
+    elif i == div_z-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
+        m1=(yi[0][j]-yi[i][j])/(zi[0]-zi[i])
+        m2=(yi[i][j]-yi[i-1][j])/(zi[i]-zi[i-1])
+        m=(m1 + m2)/2
+        return m 
+
+#----------직선 함수-----------------------------------------------+
 def line_1(m,x,y,z,b,color):
     ''' m 은 기울기, b 는 중심점부터 끝 까지의 길이
     좌우 끝점의 좌표를 리턴한다'''
@@ -145,6 +185,98 @@ def line_1(m,x,y,z,b,color):
 def line(m,x, xt, yt):
     return m*(x-xt)+yt   
 
+#-----------접선벡터----------------------------------------------+
+def vector_xy(x,y,z):
+    i, j=distance(x,y,z)
+    if 0 < j <div-1:
+        v1=np.array([xi[i][j+1]-xi[i][j],yi[i][j+1]-yi[i][j],0])
+        v2=np.array([xi[i][j]-xi[i][j-1],yi[i][j]-yi[i][j-1],0])
+        v=(v1+v2)/2
+        return v
+    elif j == 0 :
+        v1=np.array([xi[i][1]-xi[i][0],yi[i][1]-yi[i][0],0])
+        v2=np.array([xi[i][0]-xi[i][-1],yi[i][0]-yi[i][-1],0])
+        v=(v1 + v2)/2
+        return v
+    elif j == div-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
+        v1=np.array([xi[i][0]-xi[i][j],yi[i][0]-yi[i][j],0])
+        v2=np.array([xi[i][j]-xi[i][j-1],yi[i][j]-yi[i][j-1],0])
+        v=(v1 + v2)/2
+        return v 
+
+def vector_z(x,y,z):
+    i, j=distance(x,y,z)
+    if 0 < i <div_z-1:
+        v1=np.array([xi[i+1][j]-xi[i][j],yi[i+1][j]-yi[i][j],zi[i+1][0]-zi[i][0]])
+        v2=np.array([xi[i][j]-xi[i-1][j],yi[i][j]-yi[i-1][j],zi[i][0]-zi[i-1][0]])
+        v=(v1+v2)/2
+        return v
+    elif i == 0 :
+        v1=np.array([xi[1][j]-xi[0][j],yi[1][j]-yi[0][j],zi[1][0]-zi[0][0]])
+        v2=np.array([xi[0][j]-xi[-1][j],yi[0][j]-yi[-1][j],zi[0][0]-zi[-1][0]])
+        v=(v1+v2)/2
+        return v
+    elif i == div_z-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
+        v1=np.array([xi[0][j]-xi[i][j],yi[0][j]-yi[i][j],zi[0][0]-zi[i][0]])
+        v2=np.array([xi[i][j]-xi[i-1][j],yi[i][j]-yi[i-1][j],zi[i][0]-zi[i-1][0]])
+        v=(v1+v2)/2
+        return v
+    
+#-----------노말 단위벡터--------------------------------------+
+def n_vector(x,y,z):
+    v_xy=vector_xy(x,y,z)
+    print('v_xy=%s'%v_xy)
+    v_z=vector_z(x,y,z)
+    print('v_z=%s'%v_z)
+    n_v=np.cross(v_xy, v_z)
+    print('n_v=%s'%n_v)
+    mag = norm(n_v)
+    n_v=n_v/mag
+    return n_v
+
+
+#-----------평평한 극판---------------------------------------+
+def cylinder(x,y,z,s,d,r): 
+    '''x,y,z 는 극판 밑면의 중심 좌표, s는 아랫면 까지의 거리, d는 극판 두께, r은 반지름'''
+    t = np.linspace(0, d, 2) # 높이를 아랫면과 윗면 두개로 분리한것 
+    theta = np.linspace(0, 2 * np.pi, 50) #2pi 를 50개로 분해 
+    radi = np.linspace(0, r, 2) #반지름을 중점과 끝점으로만 분해 
+    v=n_vector(x,y,z) #법선벡터
+    print('v=%s'%v)
+    n1=vector_xy(x,y,z)
+    print('n1=%s'%n1)
+    mag1 = norm(n1)
+    n1=n1/mag1 #평면단위벡터 1
+    print('n1=%s'%n1)
+    n2=np.cross(v,n1) 
+    mag2=norm(n2)
+    n2=n2/mag2 #평면단위벡터 2
+    p0=np.array([x,y,z])+s*v # 밑면 중심의 위치 벡터
+   
+
+    #use meshgrid to make 2d arrays
+    radi,theta1 = np.meshgrid(radi, theta)
+    t, theta2 = np.meshgrid(t, theta)
+
+    #generate coordinates for surface
+    # "Tube"
+    X1, Y1, Z1 = [p0[i] + v[i] * t + r * np.sin(theta2) * n1[i] + r * np.cos(theta2) * n2[i]for i in [0, 1, 2]]
+    # "Bottom"
+    X2, Y2, Z2 = [p0[i] + radi[i] * np.sin(theta1) * n1[i] + radi[i] * np.cos(theta1) * n2[i]for i in [0, 1, 2]]
+    # "Top"
+    X3, Y3, Z3 = [p0[i] + v[i]*d + radi[i] * np.sin(theta1) * n1[i] + radi[i] * np.cos(theta1) * n2[i]for i in [0, 1, 2]]
+
+    ax.plot_surface(X1, Y1, Z1, color='red')
+    ax.plot_surface(X2, Y2, Z2, color='red')
+    ax.plot_surface(X3, Y3, Z3, color='red')
+    return X2, Y2, Z2
+        
+    
+#------------3d flat plate---------------------------------------+
+def flat_plate(x,y,z,s,d,r):
+    '''x,y,z 는 폐곡선 위의 찍은 점의 좌표, s는 찍은 점부터 극판 까지의 거리
+    d 는 극판 두께, r은 극판 반지름 '''
+    pass
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
     ''' 아래판 좌표와 노말 벡터의 기울기를 입력하면 폐곡선 위의 좌표를 찾아서 출력 '''
@@ -184,39 +316,92 @@ def pan(x, y, z, s, d, r):
     '''x,y 는 폐곡선 위의 찍은 점의 좌표, s는 찍은 점부터 극판 까지의 거리
     d 는 극판 두께, r은 극판 반지름 '''
     us=d + s # 점부터 극판 위쪽까지의 거리
-    m=tan(x,y)
-    x_1, y_1 =sam_dis(s,x,y)
-    x_2, y_2 =sam_dis(us,x,y)
-    lx_1, ly_1, lx_2, ly_2 = line_1(m,x_1,y_1,r,'r') #아래판의 좌우 끝 좌표 
-    ux_1, uy_1, ux_2, uy_2 = line_1(m,x_2,y_2,r,'r')  #위 판의 좌우 끝 좌표
-    plt.plot([lx_1,ux_1],[ly_1,uy_1],'r')
-    plt.plot([lx_2,ux_2],[ly_2,uy_2],'r') #판끼리 연결함 
-    tx_1,ty_1=normal(-1/m,lx_1,ly_1)
-    tx_2,ty_2=normal(-1/m,lx_2,ly_2)
-    plt.plot([lx_1,tx_1],[ly_1,ty_1],'black')
-    plt.plot([lx_2,tx_2],[ly_2,ty_2],'black')
+    m=tan_yx(x,y,z)
+    x_1, y_1, z =sam_dis(s,x,y,z)
+    x_2, y_2, z =sam_dis(us,x,y,z)
+    lx_1, ly_1, z, lx_2, ly_2, z = line_1(m,x_1,y_1,z,r,'r') #아래판의 좌우 끝 좌표 
+    ux_1, uy_1, z, ux_2, uy_2, z = line_1(m,x_2,y_2,z,r,'r')  #위 판의 좌우 끝 좌표
+    tx_1,ty_1,z=normal(-1/m,lx_1,ly_1,z)
+    tx_2,ty_2,z=normal(-1/m,lx_2,ly_2,z)
+    return lx_1, ly_1, lx_2, ly_2, ux_1, uy_1, ux_2, uy_2, tx_1, ty_1, tx_2,ty_2
+#---------------3차원 평면 극판 -----------------------------------+
+def pan_flat(x,y,z,s,d,r): #pan 3d 랑 비슷한 논리로 짰다. 문제는 이게 맞는질 모르겠네
+    o_z, o =distance(x,y,z)
+    i_z, j_z=curv_z(x,y,z,a)
+    i=0
+    list_mx_sur=[] # 폐곡선 위의 선들의 리스트 
+    list_my_sur=[]
+    list_dx_sur=[] # 아래쪽 극판 선들의 리스트
+    list_dy_sur=[]
+    list_ux_sur=[] # 위쪽 극판 선들의 리스트
+    list_uy_sur=[]
+    list_z=[]
+    while o_z+i<= i_z:
+        h_1=zi[o_z+i]-zi[o_z]
+        r_u=abs((a**2-h_1**2))**0.5 #높이랑 반지름 이용해서 극판의 길이부분 구함 
+        dx_1, dy_1, dx_2, dy_2, ux_1, uy_1, ux_2, uy_2, tx_1, ty_1, tx_2,ty_2 = pan(x,y,zi[o_z+i],s,d,r_u)
+        list_dx_sur.append([dx_1,dx_2])
+        list_dy_sur.append([dy_1,dy_2])
+        list_ux_sur.append([ux_1,ux_2])
+        list_uy_sur.append([uy_1,uy_2])
+        list_z.append([zi[o_z+i]])
+        
+        mi, mj = curv(x,y,zi[o_z+i],r_u)
+        mx_list, my_list= pick_sur(mi, mj)  
+        list_mx_sur.append(mx_list)
+        list_my_sur.append(my_list)
+        
+        i+=1
+        
+    list_dx_sur.reverse()
+    list_dy_sur.reverse()
+    list_ux_sur.reverse()
+    list_uy_sur.reverse()
+    list_z.reverse()
+    list_mx_sur.reverse()
+    list_my_sur.reverse()
+    
+    j=-1
+    while o_z+j>= j_z :
+        h_2=zi[o_z]-zi[o_z+j]
+        r_d=abs((a**2-h_2**2))**0.5
+        list_dx, list_dy, list_ux, list_uy = pan_2(x,y,zi[o_z+j],s,d,r_d)
+        list_dx_sur.append(list_dx)
+        list_dy_sur.append(list_dy)
+        list_ux_sur.append(list_ux)
+        list_uy_sur.append(list_uy)
+        list_z.append([zi[o_z+j]])
+        
+        mi, mj = curv(x,y,zi[o_z+j],r_d)
+        mx_list, my_list= pick_sur(mi, mj)  
+        list_mx_sur.append(mx_list)
+        list_my_sur.append(my_list)
+        
+        j-=1
+              
+    z_grid=np.array(list_z)
     
 #---------------곡선 길이로, 해당 좌표 구하는 함수------------------------------------+
 def curv(x,y,z,r):
     length_r=0
     length_l=0
-    i_1, i=distance(x,y,z)
-    j_1, j=distance(x,y,z)
+    i_z, i=distance(x,y,z)
+    j_z, j=distance(x,y,z)
     
     while length_r < r: # 길이 r 만큼 오른쪽으로 떨어진 곳의 좌표  
         if i < div-1:
-            length_r+=((tan(xi[i],yi[i],z)**2 + 1)**0.5)*abs((xi[i+1]-xi[i]))
+            length_r+=((tan_yx(xi[i_z][i],yi[i_z][i],z)**2 + 1)**0.5)*abs((xi[i_z][i+1]-xi[i_z][i]))
             i+=1
         else : 
-            length_r+=((tan(xi[i],yi[i],z)**2 + 1)**0.5)*abs((xi[0]-xi[i]))
+            length_r+=((tan_yx(xi[i_z][i],yi[i_z][i],z)**2 + 1)**0.5)*abs((xi[i_z][0]-xi[i_z][i]))
             i=0
     
     while length_l < r: # 길이 r 만큼 왼쪽으로 떨어진 곳의 좌표 
         if j > 0:
-            length_l+=((tan(xi[j],yi[j],z)**2 + 1)**0.5)*abs((xi[j]-xi[j-1]))
+            length_l+=((tan_yx(xi[j_z][j],yi[j_z][j],z)**2 + 1)**0.5)*abs((xi[j_z][j]-xi[j_z][j-1]))
             j-=1
         else : 
-            length_l+=((tan(xi[j],yi[j],z)**2 + 1)**0.5)*abs((xi[j]-xi[div-1]))
+            length_l+=((tan_yx(xi[j_z][j],yi[j_z][j],z)**2 + 1)**0.5)*abs((xi[j_z][j]-xi[j_z][div-1]))
             j=div-1
     
     return i,j
@@ -224,7 +409,7 @@ def curv(x,y,z,r):
 
 #-------------폐곡선 위에서 노말벡터만큼 떨어진 점 좌표 구하기-----------+
 def sam_dis(a,x,y,z):
-    m=tan(x,y,z)
+    m=tan_yx(x,y,z)
     x_1=x+(a*m*(m**2 + 1)**-0.5) #x,y 로 부터 기울기 -1/m 이고 a만큼 거리가 떨어진 점
     x_2=x-(a*m*(m**2 + 1)**-0.5)
     y_1=line(-1/m,x_1,x,y)
@@ -234,8 +419,8 @@ def sam_dis(a,x,y,z):
     v=np.array([x,y,0])
     n_1=v_1-v #법선 벡터 1 
     n_2=v_2-v #법선 벡터 2
-    k, e=distance(x,y,z)
-    c=np.array([cur_v[e][0],cur_v[e][1],0])
+    i, j=distance(x,y,z)
+    c=np.array([list_v[i][j][0],list_v[i][j][1],0])
     cross_1=np.cross(n_1,c)
     cross_2=np.cross(n_2,c)
     
@@ -253,20 +438,20 @@ def cur_line(x,y,z,s,r): #s 는 폐곡선에서 떨어진 거리
     l_y=[]
     if k <= i :
         while k <= i :
-            x_1, y_1, z_1 = sam_dis(s,xi[k],yi[k],z)
+            x_1, y_1, z_1 = sam_dis(s,xi[e][k],yi[e][k],z)
             k+=1
             l_x.append(x_1)
             l_y.append(y_1)
            
     else : 
         while k <= div-1 :
-            x_1, y_1, z_1 = sam_dis(s,xi[k],yi[k],z) 
+            x_1, y_1, z_1 = sam_dis(s,xi[e][k],yi[e][k],z) 
             k+=1
             l_x.append(x_1)
             l_y.append(y_1)
            
         while k <= i+div :
-            x_1, y_1, z_1 = sam_dis(s,xi[k-div],yi[k-div],z) 
+            x_1, y_1, z_1 = sam_dis(s,xi[e][k-div],yi[e][k-div],z) 
             k+=1
             l_x.append(x_1)
             l_y.append(y_1)
@@ -277,20 +462,20 @@ def cur_line(x,y,z,s,r): #s 는 폐곡선에서 떨어진 거리
     e, k=distance(x,y,z)
     if k >= j :    
         while k >= j :
-            x_2, y_2, z_2 = sam_dis(s,xi[k],yi[k],z)
+            x_2, y_2, z_2 = sam_dis(s,xi[e][k],yi[e][k],z)
             k-=1
             r_x.append(x_2)
             r_y.append(y_2)
           
     else:
         while k >= 0 :
-            x_2, y_2, z_2 = sam_dis(s,xi[k],yi[k],z) 
+            x_2, y_2, z_2 = sam_dis(s,xi[e][k],yi[e][k],z) 
             k-=1
             r_x.append(x_2)
             r_y.append(y_2)
            
         while k >= j-div :
-            x_2, y_2, z_2 = sam_dis(s,xi[k+div],yi[k+div],z) 
+            x_2, y_2, z_2 = sam_dis(s,xi[e][k+div],yi[e][k+div],z) 
             k-=1
             r_x.append(x_2)
             r_y.append(y_2)
@@ -358,17 +543,17 @@ def pan_3d(x,y,z,s,d,a): #s 는 찍은 점부터 극판까지의 거리, d는 �
     list_uy_sur=[]
     list_z=[]
     while o_z+i<= i_z:
-        h_1=zi[o_z+i]-zi[o_z]
+        h_1=zi[o_z+i][0]-zi[o_z][0] # zi도 2차원 array 이므로 이렇게 뽑아야 한다
         r_u=abs((a**2-h_1**2))**0.5 #높이랑 반지름 이용해서 극판의 길이부분 구함 
-        list_dx, list_dy, list_ux, list_uy = pan_2(x,y,zi[o_z+i],s,d,r_u)
+        list_dx, list_dy, list_ux, list_uy = pan_2(x,y,zi[o_z+i][0],s,d,r_u)
         list_dx_sur.append(list_dx)
         list_dy_sur.append(list_dy)
         list_ux_sur.append(list_ux)
         list_uy_sur.append(list_uy)
-        list_z.append([zi[o_z+i]])
+        list_z.append(zi[o_z+i])
         
-        mi, mj = curv(x,y,zi[o_z+i],r_u)
-        mx_list, my_list= pick_sur(mi, mj)  
+        mi, mj = curv(x,y,zi[o_z+i][0],r_u) #폐곡선 위에서 좌표 뽑기
+        mx_list, my_list= pick_sur(mi, mj,o_z+i)  
         list_mx_sur.append(mx_list)
         list_my_sur.append(my_list)
         
@@ -384,17 +569,17 @@ def pan_3d(x,y,z,s,d,a): #s 는 찍은 점부터 극판까지의 거리, d는 �
     
     j=-1
     while o_z+j>= j_z :
-        h_2=zi[o_z]-zi[o_z+j]
+        h_2=zi[o_z][0]-zi[o_z+j][0]
         r_d=abs((a**2-h_2**2))**0.5
-        list_dx, list_dy, list_ux, list_uy = pan_2(x,y,zi[o_z+j],s,d,r_d)
+        list_dx, list_dy, list_ux, list_uy = pan_2(x,y,zi[o_z+j][0],s,d,r_d)
         list_dx_sur.append(list_dx)
         list_dy_sur.append(list_dy)
         list_ux_sur.append(list_ux)
         list_uy_sur.append(list_uy)
-        list_z.append([zi[o_z+j]])
+        list_z.append(zi[o_z+j])
         
-        mi, mj = curv(x,y,zi[o_z+j],r_d)
-        mx_list, my_list= pick_sur(mi, mj)  
+        mi, mj = curv(x,y,zi[o_z+j][0],r_d)
+        mx_list, my_list= pick_sur(mi, mj,o_z+j)  
         list_mx_sur.append(mx_list)
         list_my_sur.append(my_list)
         
@@ -415,16 +600,16 @@ def pan_3d(x,y,z,s,d,a): #s 는 찍은 점부터 극판까지의 거리, d는 �
     side_sur(dx_grid, dy_grid, z_grid, mx_grid, my_grid, 'black')
        
 #------- 폐곡면위의 점들 뽑을때----------------------------------+
-def pick_sur(i,j):
+def pick_sur(i,j,k):
     if i+1>=j:
-        x_list=xi[j:i+1]
-        y_list=yi[j:i+1]
+        x_list=xi[k][j:i+1]
+        y_list=yi[k][j:i+1]
     else : #i+1 < j
-        x_list1=xi[j:div]
-        x_list2=xi[:i+1]
+        x_list1=xi[k][j:div]
+        x_list2=xi[k][:i+1]
         x_list=x_list1+x_list2
-        y_list1=yi[j:div]
-        y_list2=yi[:i+1]
+        y_list1=yi[k][j:div]
+        y_list2=yi[k][:i+1]
         y_list=y_list1+y_list2
     
     return x_list, y_list
@@ -497,15 +682,15 @@ def onclick(event):
         p=ax.format_coord(event.xdata,event.ydata) 
         #matplotlib 내장함수. 클릭 위치의 좌표 string으로 추출 
         kx,ky,kz=cor(p)
-        ax.scatter(kx, ky, kz, color='green')
+        print(p)
+        
         if time is None:
-            print(p)
-            time = threading.Timer(time_interval, on_singleclick, [event,kx,ky,kz,s,d,a]) #arg를 튜플형태로 넣어서 싱글클릭에 넣는듯? 
+            time = threading.Timer(time_interval, on_singleclick, [event,kx,ky,kz,d,a]) #arg를 튜플형태로 넣어서 싱글클릭에 넣는듯? 
             time.start()
             
         if event.dblclick:
-            print(p)
             time.cancel()
+            ax.scatter(kx, ky, kz, color='green')
             on_dblclick(event,kx,ky,kz,s,d,a)
             
 
@@ -515,15 +700,15 @@ def on_dblclick(event,x,y,z,s,d,a):
     global time
     print("You double-clicked", event.button, event.xdata, event.ydata)
     time = None
-    pan_3d(x,y,z,s,d,a)
+    cylinder(x,y,z,s,d,a)
 
 ##----------- 싱글 클릭할 때 ---------------------------------------+
 
-def on_singleclick(event,x,y,z,s,d,a):
-    global t
+def on_singleclick(event,x,y,z,d,a):
+    global time
     print("You single-clicked", event.button, event.xdata, event.ydata)
     time = None
-    pan(x,y,z,s,d,a)
+    pass
 
 cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
