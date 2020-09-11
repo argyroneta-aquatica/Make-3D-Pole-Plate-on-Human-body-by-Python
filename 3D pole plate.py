@@ -14,8 +14,8 @@ import threading
 from scipy.linalg import norm
 
 ##-----------패러미터--------------------------------------------------+
-s=0.1 #폐곡선 표면부터 극판까지의 거리 
-d=0.1 #극판 두께
+s=1 #폐곡선 표면부터 극판까지의 거리 
+d=1 #극판 두께
 a=0.5 #극판의 반지름 
 div=300 #옆면을 나눈 수
 div_z=300 #축을 나눈 수 
@@ -192,17 +192,26 @@ def vector_xy(x,y,z):
         v1=np.array([xi[i][j+1]-xi[i][j],yi[i][j+1]-yi[i][j],0])
         v2=np.array([xi[i][j]-xi[i][j-1],yi[i][j]-yi[i][j-1],0])
         v=(v1+v2)/2
-        return v
+        if norm(v) == 0:
+            return np.array([0,1,0])
+        else :
+            return v
     elif j == 0 :
         v1=np.array([xi[i][1]-xi[i][0],yi[i][1]-yi[i][0],0])
         v2=np.array([xi[i][0]-xi[i][-1],yi[i][0]-yi[i][-1],0])
         v=(v1 + v2)/2
-        return v
+        if norm(v) == 0:
+            return np.array([0,1,0])
+        else :
+            return v
     elif j == div-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
         v1=np.array([xi[i][0]-xi[i][j],yi[i][0]-yi[i][j],0])
         v2=np.array([xi[i][j]-xi[i][j-1],yi[i][j]-yi[i][j-1],0])
         v=(v1 + v2)/2
-        return v 
+        if norm(v) == 0:
+            return np.array([0,1,0])
+        else :
+            return v
 
 def vector_z(x,y,z):
     i, j=distance(x,y,z)
@@ -213,14 +222,12 @@ def vector_z(x,y,z):
         return v
     elif i == 0 :
         v1=np.array([xi[1][j]-xi[0][j],yi[1][j]-yi[0][j],zi[1][0]-zi[0][0]])
-        v2=np.array([xi[0][j]-xi[-1][j],yi[0][j]-yi[-1][j],zi[0][0]-zi[-1][0]])
-        v=(v1+v2)/2
-        return v
+        v=v1
+        return np.array([1,0,0])
     elif i == div_z-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
-        v1=np.array([xi[0][j]-xi[i][j],yi[0][j]-yi[i][j],zi[0][0]-zi[i][0]])
         v2=np.array([xi[i][j]-xi[i-1][j],yi[i][j]-yi[i-1][j],zi[i][0]-zi[i-1][0]])
-        v=(v1+v2)/2
-        return v
+        v=v2
+        return np.array([1,0,0])
     
 #-----------노말 단위벡터--------------------------------------+
 def n_vector(x,y,z):
@@ -237,7 +244,7 @@ def n_vector(x,y,z):
 
 #-----------평평한 극판---------------------------------------+
 def cylinder(x,y,z,s,d,r): 
-    '''x,y,z 는 극판 밑면의 중심 좌표, s는 아랫면 까지의 거리, d는 극판 두께, r은 반지름'''
+    '''x,y,z 는 폐곡선 위의 좌표, s는 아랫면 까지의 거리, d는 극판 두께, r은 반지름'''
     t = np.linspace(0, d, 2) # 높이를 아랫면과 윗면 두개로 분리한것 
     theta = np.linspace(0, 2 * np.pi, 50) #2pi 를 50개로 분해 
     radi = np.linspace(0, r, 2) #반지름을 중점과 끝점으로만 분해 
@@ -270,13 +277,132 @@ def cylinder(x,y,z,s,d,r):
     ax.plot_surface(X2, Y2, Z2, color='red')
     ax.plot_surface(X3, Y3, Z3, color='red')
     return X2, Y2, Z2
-        
+
+#----------------------------------
+def pick_p(a): #원판 둘레의 포인트를 뽑기위한 함수
+    b=[]
+    for i in range(len(a)):
+        b.append(a[i][1])
+    b=np.array(b)
+    return b
+
+def pick_face(x,y,z,v,s): #좌표에 해당하는 facet을 뽑는 작업 v는 해당하는 노말 벡터 
+    '''x,y,z 는 아랫면의 좌표, v는 법선 벡터, s는 폐곡면으로부터 아랫면까지의 거리 '''
+    pz=z-s*v[2]
+    i=0
+    while pz >= zi[i][0]: # z 축 레이어 특정, 내가 원하는 건 i-1 이다. 
+        i+=1
+        if i==div_z:
+            break 
+    v_0=np.array([x-xi[i-1][0], y-yi[i-1][0], z-zi[i-1][0]])
+    v_2=np.cross(v_0,v)
+    if v_2[2] < 0 : 
+        j=0
+        while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
+            v_1=np.array([x-xi[i-1][j+1], y-yi[i-1][j+1], z-zi[i-1][0]])
+            v_2=np.cross(v_1,v)
+            j+=1
     
+    else :
+        j=0
+        while v_2[2] >= 0:
+            v_1=np.array([x-xi[i-1][j-2], y-yi[i-1][j-2], z-zi[i-1][0]])
+            v_2=np.cross(v_1,v)
+            j-=1
+    
+    v_0=np.array([x-xi[i][0], y-yi[i][0], z-zi[i][0]])
+    v_2=np.cross(v_0,v)
+    if v_2[2] < 0 : 
+        j1=0
+        while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
+            v_1=np.array([x-xi[i][j1+1], y-yi[i][j1+1], z-zi[i][0]])
+            v_2=np.cross(v_1,v)
+            j1+=1
+    
+    else :
+        j1=0
+        while v_2[2] >= 0:
+            v_1=np.array([x-xi[i][j1-2], y-yi[i][j1-2], z-zi[i][0]])
+            v_2=np.cross(v_1,v)
+            j1-=1
+    
+    #위에서 구한 메쉬의 4개의 포인트 
+    p1=np.array([xi[i-1][j-1],yi[i-1][j-1],zi[i-1][0]])
+    p2=np.array([xi[i-1][j],yi[i-1][j],zi[i-1][0]])
+    p3=np.array([xi[i][j1],yi[i][j1],zi[i][0]])
+    p4=np.array([xi[i][j1-1],yi[i][j1-1],zi[i][0]])
+    return p1, p2, p3, p4
+    
+
+def face(p1,p2,p3,p4) : 
+    v_1=p2-p1
+    v_2=p3-p2
+    v_n=np.cross(v_1, v_2)
+    a=v_n[0]
+    b=v_n[1]
+    c=v_n[2]
+    d=v_n[0]*p2[0]+v_n[1]*p2[1]+v_n[2]*p2[2]
+    return a, b, c, d
+    
+
+def cross_point(v,a,b,c,d,x,y,z): #x,y,z 는 원판위에 좌표, v 는 법선 벡터
+    h=abs(a*x+b*y+c*z-d)/(a**2+b**2+c**2)**0.5
+    p0=np.array([x,y,z])
+    p1=p0-h*v
+    print('p1=%s'%p1)
+    return p1
 #------------3d flat plate---------------------------------------+
 def flat_plate(x,y,z,s,d,r):
     '''x,y,z 는 폐곡선 위의 찍은 점의 좌표, s는 찍은 점부터 극판 까지의 거리
     d 는 극판 두께, r은 극판 반지름 '''
-    pass
+    e_z, e =distance(x,y,z)
+    x2,y2,z2= cylinder(x,y,z,s,d,r)
+    x_list=pick_p(x2)
+    y_list=pick_p(y2)
+    z_list=pick_p(z2)
+    v=n_vector(x,y,z)
+    p=[] 
+    for i in range(len(x_list)):
+        p.append(np.array([x_list[i],y_list[i],z_list[i]]))
+    p=np.array(p) # 아랫면의 둘레에 있는 위치벡터들의 리스트 
+    ap_list=[]
+    for i in range(len(p)):
+        p1,p2,p3,p4=pick_face(p[i][0],p[i][1],p[i][2],v,s)
+        a,b,c,d=face(p1,p2,p3,p4)
+        ap=cross_point(v,a,b,c,d,p[i][0],p[i][1],p[i][2])
+        ap_list.append(ap)
+    ap_list=np.array(ap_list) #폐곡선에 크로스되는 점들의 xyz 어레이
+    print('x2=%s'%x_list)
+    print(ap_list)
+    side_face(x_list,y_list,z_list,ap_list)
+
+def side_face(x_list,y_list,z_list,ap_list): #밑면이랑 폐곡선 크로스되는 지점 이용해서 메쉬 짠것 
+    x_grid=[]
+    y_grid=[]
+    z_grid=[]
+    x_grid.append(x_list)
+    y_grid.append(y_list)
+    z_grid.append(z_list)
+    x2_list=[]
+    y2_list=[]
+    z2_list=[]
+    for i in range(len(ap_list)):
+        x2_list.append(ap_list[i][0])
+        y2_list.append(ap_list[i][1])
+        z2_list.append(ap_list[i][2])
+    x2_list=np.array(x2_list)
+    y2_list=np.array(y2_list)
+    z2_list=np.array(z2_list)
+    x_grid.append(x2_list)
+    y_grid.append(y2_list)
+    z_grid.append(z2_list)
+    x_grid=np.array(x_grid)
+    y_grid=np.array(y_grid)
+    z_grid=np.array(z_grid)
+    
+    ax.plot_surface(x_grid, y_grid, z_grid, color='black', alpha=1)
+    
+
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
     ''' 아래판 좌표와 노말 벡터의 기울기를 입력하면 폐곡선 위의 좌표를 찾아서 출력 '''
@@ -700,7 +826,7 @@ def on_dblclick(event,x,y,z,s,d,a):
     global time
     print("You double-clicked", event.button, event.xdata, event.ydata)
     time = None
-    cylinder(x,y,z,s,d,a)
+    flat_plate(x,y,z,s,d,a)
 
 ##----------- 싱글 클릭할 때 ---------------------------------------+
 
