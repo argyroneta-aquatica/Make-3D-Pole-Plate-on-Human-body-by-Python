@@ -14,11 +14,11 @@ import threading
 from scipy.linalg import norm
 
 ##-----------패러미터--------------------------------------------------+
-s=1 #폐곡선 표면부터 극판까지의 거리 
+s=2 #폐곡선 표면부터 극판까지의 거리 
 d=1 #극판 두께
 a=0.5 #극판의 반지름 
-div=300 #옆면을 나눈 수
-div_z=300 #축을 나눈 수 
+div=100 #옆면을 나눈 수
+div_z=100 #축을 나눈 수 
 
 #----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
@@ -213,7 +213,7 @@ def vector_xy(x,y,z):
         else :
             return v
 
-def vector_z(x,y,z):
+def vector_z(x,y,z): #나중에 추가 수정해야 할 부분으로 보인다. z=0, div_z 에서 포인트가 중첩되는것 때매 에러가 나는건데 이걸 궂이 해결할 필요가 있나 싶기도 하고.. 
     i, j=distance(x,y,z)
     if 0 < i <div_z-1:
         v1=np.array([xi[i+1][j]-xi[i][j],yi[i+1][j]-yi[i][j],zi[i+1][0]-zi[i][0]])
@@ -227,16 +227,13 @@ def vector_z(x,y,z):
     elif i == div_z-1 : #마지막 점의 경우 k+1 번째가 없기에 에러가 난다. 때문에 써준거 
         v2=np.array([xi[i][j]-xi[i-1][j],yi[i][j]-yi[i-1][j],zi[i][0]-zi[i-1][0]])
         v=v2
-        return np.array([1,0,0])
+        return np.array([-1,0,0])
     
 #-----------노말 단위벡터--------------------------------------+
 def n_vector(x,y,z):
     v_xy=vector_xy(x,y,z)
-    print('v_xy=%s'%v_xy)
     v_z=vector_z(x,y,z)
-    print('v_z=%s'%v_z)
     n_v=np.cross(v_xy, v_z)
-    print('n_v=%s'%n_v)
     mag = norm(n_v)
     n_v=n_v/mag
     return n_v
@@ -249,12 +246,12 @@ def cylinder(x,y,z,s,d,r):
     theta = np.linspace(0, 2 * np.pi, 50) #2pi 를 50개로 분해 
     radi = np.linspace(0, r, 2) #반지름을 중점과 끝점으로만 분해 
     v=n_vector(x,y,z) #법선벡터
-    print('v=%s'%v)
+    
     n1=vector_xy(x,y,z)
-    print('n1=%s'%n1)
+    
     mag1 = norm(n1)
     n1=n1/mag1 #평면단위벡터 1
-    print('n1=%s'%n1)
+    
     n2=np.cross(v,n1) 
     mag2=norm(n2)
     n2=n2/mag2 #평면단위벡터 2
@@ -292,39 +289,99 @@ def pick_face(x,y,z,v,s): #좌표에 해당하는 facet을 뽑는 작업 v는 �
     i=0
     while pz >= zi[i][0]: # z 축 레이어 특정, 내가 원하는 건 i-1 이다. 
         i+=1
-        if i==div_z:
-            break 
+        if i==div_z-1:
+            break
     v_0=np.array([x-xi[i-1][0], y-yi[i-1][0], z-zi[i-1][0]])
     v_2=np.cross(v_0,v)
-    if v_2[2] < 0 : 
-        j=0
-        while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
-            v_1=np.array([x-xi[i-1][j+1], y-yi[i-1][j+1], z-zi[i-1][0]])
-            v_2=np.cross(v_1,v)
-            j+=1
+    if not any([v[0], v[1]]) == 0:
+        
+        if v_2[2] < 0 : 
+            j=0
+            while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
+                v_1=np.array([x-xi[i-1][j+1], y-yi[i-1][j+1], z-zi[i-1][0]])
+                v_2=np.cross(v_1,v)
+                j+=1
     
-    else :
-        j=0
-        while v_2[2] >= 0:
-            v_1=np.array([x-xi[i-1][j-2], y-yi[i-1][j-2], z-zi[i-1][0]])
-            v_2=np.cross(v_1,v)
-            j-=1
+        else :
+            j=0
+            while v_2[2] >= 0:
+                v_1=np.array([x-xi[i-1][j-2], y-yi[i-1][j-2], z-zi[i-1][0]])
+                v_2=np.cross(v_1,v)
+                j-=1
+                if j==-1*(div-1):
+                    j+=1
+                    break
+    
+    else: 
+        dis_list=[]
+        for k in range(div):
+            distance=(x-xi[i-1][k])**2+(y-yi[i-1][k])**2
+            dis_list.append(distance)
+        m1=dis_list.index(min(dis_list))
+        del dis_list[m1]
+        m2=dis_list.index(min(dis_list))
+        if 0<m1<div-1: 
+            if m1==m2 :
+                j=m1+1
+            elif m1>m2 :
+                j=m1
+        elif m1==0 :
+            if m1==m2 :
+                j=m1+1
+            else:
+                j=m1
+        elif m1==div-1 :
+            if m2==0:
+                j=0
+            else:
+                j=div-1
+    
+    
     
     v_0=np.array([x-xi[i][0], y-yi[i][0], z-zi[i][0]])
     v_2=np.cross(v_0,v)
-    if v_2[2] < 0 : 
-        j1=0
-        while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
-            v_1=np.array([x-xi[i][j1+1], y-yi[i][j1+1], z-zi[i][0]])
-            v_2=np.cross(v_1,v)
-            j1+=1
+    if not any([v[0], v[1]]) == 0: #법선 벡터가[0,0,-1] 인 경우에는 버그가 난다. 그것을 수정한 것 
+        
+        if v_2[2] < 0 : 
+            j1=0
+            while v_2[2] < 0: #xy 쪽을 추출하는 거다. 내가 원하는 건 j-1이다.  
+                v_1=np.array([x-xi[i][j1+1], y-yi[i][j1+1], z-zi[i][0]])
+                v_2=np.cross(v_1,v)
+                j1+=1
     
-    else :
-        j1=0
-        while v_2[2] >= 0:
-            v_1=np.array([x-xi[i][j1-2], y-yi[i][j1-2], z-zi[i][0]])
-            v_2=np.cross(v_1,v)
-            j1-=1
+        else :
+            j1=0
+            while v_2[2] >= 0:
+                v_1=np.array([x-xi[i][j1-2], y-yi[i][j1-2], z-zi[i][0]])
+                v_2=np.cross(v_1,v)
+                j1-=1
+                if j1==-1*(div-1):
+                    j1+=1
+                    break
+        
+    else: 
+        dis_list=[]
+        for k in range(div):
+            distance=(x-xi[i][k])**2+(y-yi[i][k])**2
+            dis_list.append(distance)
+        m1=dis_list.index(min(dis_list))
+        del dis_list[m1]
+        m2=dis_list.index(min(dis_list))
+        if 0<m1<div-1: 
+            if m1==m2 :
+                j1=m1+1
+            elif m1>m2 :
+                j1=m1
+        elif m1==0 :
+            if m1==m2 :
+                j1=m1+1
+            else:
+                j1=m1
+        elif m1==div-1 :
+            if m2==0:
+                j1=0
+            else:
+                j1=div-1
     
     #위에서 구한 메쉬의 4개의 포인트 
     p1=np.array([xi[i-1][j-1],yi[i-1][j-1],zi[i-1][0]])
@@ -335,7 +392,16 @@ def pick_face(x,y,z,v,s): #좌표에 해당하는 facet을 뽑는 작업 v는 �
     
 
 def face(p1,p2,p3,p4) : 
-    v_1=p2-p1
+    p1=list(p1)
+    p2=list(p2)
+    if not p1==p2:
+        p1=np.array(p1)
+        p2=np.array(p2)
+        v_1=p2-p1
+    else : 
+        p1=np.array(p1)
+        p2=np.array(p2)
+        v_1=p4-p2    
     v_2=p3-p2
     v_n=np.cross(v_1, v_2)
     a=v_n[0]
@@ -346,10 +412,11 @@ def face(p1,p2,p3,p4) :
     
 
 def cross_point(v,a,b,c,d,x,y,z): #x,y,z 는 원판위에 좌표, v 는 법선 벡터
-    h=abs(a*x+b*y+c*z-d)/(a**2+b**2+c**2)**0.5
+    h1=abs(a*x+b*y+c*z-d)/(a**2+b**2+c**2)**0.5 #평면과 원판위 점 사이의 거리
+    cos=abs(np.dot(np.array([a,b,c]),v))/(a**2+b**2+c**2)**0.5
+    h=h1/cos
     p0=np.array([x,y,z])
     p1=p0-h*v
-    print('p1=%s'%p1)
     return p1
 #------------3d flat plate---------------------------------------+
 def flat_plate(x,y,z,s,d,r):
@@ -372,8 +439,6 @@ def flat_plate(x,y,z,s,d,r):
         ap=cross_point(v,a,b,c,d,p[i][0],p[i][1],p[i][2])
         ap_list.append(ap)
     ap_list=np.array(ap_list) #폐곡선에 크로스되는 점들의 xyz 어레이
-    print('x2=%s'%x_list)
-    print(ap_list)
     side_face(x_list,y_list,z_list,ap_list)
 
 def side_face(x_list,y_list,z_list,ap_list): #밑면이랑 폐곡선 크로스되는 지점 이용해서 메쉬 짠것 
