@@ -14,11 +14,11 @@ import threading
 from scipy.linalg import norm
 
 ##-----------패러미터--------------------------------------------------+
-s=2 #폐곡선 표면부터 극판까지의 거리 
-d=1 #극판 두께
+s=0.1 #폐곡선 표면부터 극판까지의 거리 
+d=0.1 #극판 두께
 a=0.5 #극판의 반지름 
-div=100 #옆면을 나눈 수
-div_z=100 #축을 나눈 수 
+div=400 #옆면을 나눈 수
+div_z=400 #축을 나눈 수 
 
 #----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
@@ -26,9 +26,9 @@ ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
-plt.xlim(-5,5) #x 축 범위
-plt.ylim(-5,5) 
-ax.set_zlim(-5,5)
+plt.xlim(2,4) #x 축 범위
+plt.ylim(2,4) 
+ax.set_zlim(2,4)
 
 #-------------몸 곡면(구)-----------------------------------------+
 def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중심 좌표 
@@ -45,7 +45,7 @@ def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중�
     z_array=np.array(z_array)
     x = np.outer(radi, np.cos(theta))+center_x
     y = np.outer(radi, np.sin(theta))+center_y
-    ax.plot_surface(x, y, z_array, color='yellow',alpha=0.5, shade=3)
+    ax.plot_surface(x, y, z_array, color='yellow',alpha=0, shade=3)
     return x,y,z_array
 
 ##----------중요!!------------------------------------------------+
@@ -270,9 +270,9 @@ def cylinder(x,y,z,s,d,r):
     # "Top"
     X3, Y3, Z3 = [p0[i] + v[i]*d + radi[i] * np.sin(theta1) * n1[i] + radi[i] * np.cos(theta1) * n2[i]for i in [0, 1, 2]]
 
-    ax.plot_surface(X1, Y1, Z1, color='red')
-    ax.plot_surface(X2, Y2, Z2, color='red')
-    ax.plot_surface(X3, Y3, Z3, color='red')
+    ax.plot_surface(X1, Y1, Z1, color='red', alpha=0.5)
+    ax.plot_surface(X2, Y2, Z2, color='red', alpha=0.5)
+    ax.plot_surface(X3, Y3, Z3, color='red', alpha=0.5)
     return X2, Y2, Z2
 
 #----------------------------------
@@ -388,12 +388,7 @@ def pick_face(x,y,z,v,s): #좌표에 해당하는 facet을 뽑는 작업 v는 �
             else:
                 j1=div-1
     
-    #위에서 구한 메쉬의 4개의 포인트 
-    p1=np.array([xi[i-1][j-1],yi[i-1][j-1],zi[i-1][0]])
-    p2=np.array([xi[i-1][j],yi[i-1][j],zi[i-1][0]])
-    p3=np.array([xi[i][j1],yi[i][j1],zi[i][0]])
-    p4=np.array([xi[i][j1-1],yi[i][j1-1],zi[i][0]])
-    return p1, p2, p3, p4
+    return i, j, j1
     
 
 def face(p1,p2,p3,p4) : 
@@ -437,15 +432,41 @@ def flat_plate(x,y,z,s,d,r):
     for i in range(len(x_list)):
         p.append(np.array([x_list[i],y_list[i],z_list[i]]))
     p=np.array(p) # 아랫면의 둘레에 있는 위치벡터들의 리스트 
-    ap_list=[]
+    ap_list=[] #폐곡선 위의 점들의 리스트를 만들 것이다 
+    info_list = [] # 이후의 함수를 위한 것 
     for i in range(len(p)):
-        p1,p2,p3,p4=pick_face(p[i][0],p[i][1],p[i][2],v,s)
+        t0,t1,t2 =pick_face(p[i][0],p[i][1],p[i][2],v,s)
+          #위에서 구한 메쉬의 4개의 포인트 
+        p1=np.array([xi[t0-1][t1-1],yi[t0-1][t1-1],zi[t0-1][0]])
+        p2=np.array([xi[t0-1][t1],yi[t0-1][t1],zi[t0-1][0]])
+        p3=np.array([xi[t0][t2],yi[t0][t2],zi[t0][0]])
+        p4=np.array([xi[t0][t2-1],yi[t0][t2-1],zi[t0][0]])
         a,b,c,d=face(p1,p2,p3,p4)
-        ap=cross_point(v,a,b,c,d,p[i][0],p[i][1],p[i][2])
-        ap_list.append(ap)
-    ap_list=np.array(ap_list) #폐곡선에 크로스되는 점들의 xyz 어레이
-    side_face(x_list,y_list,z_list,ap_list)
-
+        ap=cross_point(v,a,b,c,d,p[i][0],p[i][1],p[i][2]) 
+        ap_list.append(ap) 
+        info=[t0,t1,t2,ap[2]] #축 순서, 큰쪽 작은쪽 xy 순서, z 좌표
+        info_list.append(info)
+    
+    ap_list=np.array(ap_list)  #폐곡선에 크로스되는 점들의 xyz 어레이
+    side_face(x_list,y_list,z_list,ap_list) 
+    
+    info2_list=[]
+    for j in range(int(len(info_list)/2)): 
+        info2=[info_list[j][0],min(info_list[j][1],info_list[j][2]),
+               max(info_list[49-j][1],info_list[49-j][2]),info_list[j][3]]
+        info2_list.append(info2)
+    
+    base_sur=[]
+    for k in range(len(info2_list)):
+        cro_point=cross_point2(info2_list[k][0],info2_list[k][1],info2_list[k][2],info2_list[k][3])
+        cro_point.insert(0,ap_list[49-k])
+        cro_point.append(ap_list[k])
+        cro_point=np.array(cro_point) #원판의 시작점과 끝점, 중간에 교차되는 점들을 모두 구한 array다
+        base_sur.append(cro_point)
+             
+    base_sur=np.array(base_sur)
+    base_face(base_sur)
+    
 def side_face(x_list,y_list,z_list,ap_list): #밑면이랑 폐곡선 크로스되는 지점 이용해서 메쉬 짠것 
     x_grid=[]
     y_grid=[]
@@ -470,8 +491,60 @@ def side_face(x_list,y_list,z_list,ap_list): #밑면이랑 폐곡선 크로스�
     y_grid=np.array(y_grid)
     z_grid=np.array(z_grid)
     
-    ax.plot_surface(x_grid, y_grid, z_grid, color='black', alpha=1)
+    ax.plot_surface(x_grid, y_grid, z_grid, color='black', alpha=0.5)
+
+def cross_point2(zt, ht, lt, z) : # 폐곡선 위의 원에 수평한 선이 그리드들과 만나는 점들 
+    p2_list=[]
+    j_list=list(range(lt,ht))
     
+    for i in j_list:
+        v1=np.array([xi[zt][i],yi[zt][i],zi[zt][0]])
+        v2=np.array([xi[zt-1][i],yi[zt-1][i],zi[zt-1][0]]) #point 2 임
+        vector=v1-v2
+        k=(z-zi[zt-1][0])/vector[2]
+        p2=v2+k*vector
+        p2_list.append(p2)
+        
+    return p2_list      
+
+def base_face(base_sur):
+    x_list=[]
+    y_list=[]
+    z_list=[]
+    for i in range(len(base_sur)):
+        x_l=[]
+        y_l=[]
+        z_l=[]
+        for j in range(len(base_sur[i])):
+            x_l.append(base_sur[i][j][0])
+            y_l.append(base_sur[i][j][1])
+            z_l.append(base_sur[i][j][2])
+        
+        x_list.append(x_l)
+        y_list.append(y_l)
+        z_list.append(z_l)
+    
+    print(x_list)
+    x_grid, y_grid=fit2(x_list, y_list)
+    z_grid=np.array(z_list)
+    plt.plot(x_grid,y_grid,z_grid, 'blue')
+#--------array의 갯수를 맞추기 위한 함수(최댓값으로 맞춘다)--------------------+
+def fit2(a,b): #a는 여기서 x array list를, b는 y array list, c는 z array list를 의미한다
+    how_many=[]
+    re_a=[]
+    re_b=[]
+    for i in a:
+        how_many.append(len(i))
+    many= max(how_many)  # 가장 많은 어레이의 갯수를 찾고, 그 개수에 맞추어 나머지를 인터폴 레이트 함 
+    for i in range(len(a)): 
+        tck, ui =interpolate.splprep([a[i],b[i]], s=0, per=False) 
+        #per = 0 이면 폐곡선이 아니라 곡선 형태로 인터폴 레이션 한다. 
+        x,y =interpolate.splev(np.linspace(0,1,many),tck)
+        re_a.append(x)
+        re_b.append(y)
+    grid_a=np.array(re_a)
+    grid_b=np.array(re_b)
+    return grid_a, grid_b
 
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
