@@ -45,7 +45,7 @@ def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중�
     z_array=np.array(z_array)
     x = np.outer(radi, np.cos(theta))+center_x
     y = np.outer(radi, np.sin(theta))+center_y
-    ax.plot_surface(x, y, z_array, color='yellow',alpha=0, shade=3)
+    ax.plot_surface(x, y, z_array, color='yellow',alpha=0.3)
     return x,y,z_array
 
 ##----------중요!!------------------------------------------------+
@@ -449,7 +449,6 @@ def flat_plate(x,y,z,s,d,r):
     
     ap_list=np.array(ap_list)  #폐곡선에 크로스되는 점들의 xyz 어레이
     side_face(x_list,y_list,z_list,ap_list) 
-    
     info2_list=[]
     for j in range(int(len(info_list)/2)): 
         info2=[info_list[j][0],min(info_list[j][1],info_list[j][2]),
@@ -524,27 +523,38 @@ def base_face(base_sur):
         y_list.append(y_l)
         z_list.append(z_l)
     
-    print(x_list)
-    x_grid, y_grid=fit2(x_list, y_list)
-    z_grid=np.array(z_list)
-    plt.plot(x_grid,y_grid,z_grid, 'blue')
+    x_grid, y_grid, z_grid =fit2(x_list, y_list, z_list)
+    print('x_grid=%s'%x_grid)
+    print('y_grid=%s'%y_grid)
+    print('z_grid=%s'%z_grid)
+    print(len(x_grid))
+    print(len(y_grid))
+    print(len(z_grid))
+    ax.plot_surface(x_grid, y_grid, z_grid, color='blue', alpha=1)
 #--------array의 갯수를 맞추기 위한 함수(최댓값으로 맞춘다)--------------------+
-def fit2(a,b): #a는 여기서 x array list를, b는 y array list, c는 z array list를 의미한다
+def fit2(a,b,c): #a는 여기서 x array list를, b는 y array list, c는 z array list를 의미한다
     how_many=[]
     re_a=[]
     re_b=[]
+    re_c=[]
     for i in a:
         how_many.append(len(i))
     many= max(how_many)  # 가장 많은 어레이의 갯수를 찾고, 그 개수에 맞추어 나머지를 인터폴 레이트 함 
-    for i in range(len(a)): 
-        tck, ui =interpolate.splprep([a[i],b[i]], s=0, per=False) 
-        #per = 0 이면 폐곡선이 아니라 곡선 형태로 인터폴 레이션 한다. 
-        x,y =interpolate.splev(np.linspace(0,1,many),tck)
-        re_a.append(x)
-        re_b.append(y)
+    print('many=%s'%many)
+    print('len_a =%s'%len(a))
+    for i in range(len(a)):
+        f=interpolate.interp1d(a[i],b[i])
+        a_new=np.linspace(a[i][0],a[i][-1],many,endpoint=True)
+        re_a.append(a_new)
+        re_b.append(f(a_new))
     grid_a=np.array(re_a)
     grid_b=np.array(re_b)
-    return grid_a, grid_b
+    
+    for i in range(len(c)):
+        re_c.append([c[i][0]])
+    grid_c=np.array(re_c)
+    
+    return grid_a, grid_b, grid_c
 
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
