@@ -12,13 +12,17 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import threading
 from scipy.linalg import norm
+import stl
+from stl import mesh
+import matplotlib.tri as mtri
 
 ##-----------패러미터--------------------------------------------------+
 s=0.1 #폐곡선 표면부터 극판까지의 거리 
 d=0.1 #극판 두께
 a=0.5 #극판의 반지름 
-div=400 #옆면을 나눈 수
-div_z=400 #축을 나눈 수 
+div=100 #옆면을 나눈 수
+div_z=100 #축을 나눈 수 
+div_c=50 #원판의 둘레를 나눈 수 
 
 #----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
@@ -26,9 +30,9 @@ ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.set_zlabel("Z")
-plt.xlim(2,4) #x 축 범위
-plt.ylim(2,4) 
-ax.set_zlim(2,4)
+plt.xlim(-5,5) #x 축 범위
+plt.ylim(-5,5) 
+ax.set_zlim(-5,5)
 
 #-------------몸 곡면(구)-----------------------------------------+
 def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중심 좌표 
@@ -47,11 +51,10 @@ def body_surface (radius, center_x, center_y, center_z): #반지름, 구의 중�
     y = np.outer(radi, np.sin(theta))+center_y
     ax.plot_surface(x, y, z_array, color='yellow',alpha=0.3)
     return x,y,z_array
-
 ##----------중요!!------------------------------------------------+
     
 xi, yi, zi = body_surface(5,0,0,0) # xi, yi, zi 는 이 전체 알고리즘에서 surface의 array를 의미한다. 
-    
+'''ax.plot_trisurf(xi, yi, zi, linewidth=0.2, antialiased=True)  '''  
 
 #------------폐곡선 라인 벡터 만들기 (반시계 방향)--------------------+
 def line_vector(x,y,z): #x,y,z 는 모두 array 이다
@@ -243,7 +246,7 @@ def n_vector(x,y,z):
 def cylinder(x,y,z,s,d,r): 
     '''x,y,z 는 폐곡선 위의 좌표, s는 아랫면 까지의 거리, d는 극판 두께, r은 반지름'''
     t = np.linspace(0, d, 2) # 높이를 아랫면과 윗면 두개로 분리한것 
-    theta = np.linspace(0, 2 * np.pi, 50) #2pi 를 50개로 분해 
+    theta = np.linspace(0, 2 * np.pi, div_c) #2pi 를 50개로 분해 
     radi = np.linspace(0, r, 2) #반지름을 중점과 끝점으로만 분해 
     v=n_vector(x,y,z) #법선벡터
     
@@ -273,7 +276,7 @@ def cylinder(x,y,z,s,d,r):
     ax.plot_surface(X1, Y1, Z1, color='red', alpha=0.5)
     ax.plot_surface(X2, Y2, Z2, color='red', alpha=0.5)
     ax.plot_surface(X3, Y3, Z3, color='red', alpha=0.5)
-    return X2, Y2, Z2
+    return X1, Y1, Z1, X2, Y2, Z2, X3, Y3, Z3 # 모든좌표를 다 추출한것
 
 #----------------------------------
 def pick_p(a): #원판 둘레의 포인트를 뽑기위한 함수
@@ -423,7 +426,7 @@ def flat_plate(x,y,z,s,d,r):
     '''x,y,z 는 폐곡선 위의 찍은 점의 좌표, s는 찍은 점부터 극판 까지의 거리
     d 는 극판 두께, r은 극판 반지름 '''
     e_z, e =distance(x,y,z)
-    x2,y2,z2= cylinder(x,y,z,s,d,r)
+    x1,y1,z1,x2,y2,z2,x3,y3,z3= cylinder(x,y,z,s,d,r) #실린더의 좌표들 아웃 풋 해야함 
     x_list=pick_p(x2)
     y_list=pick_p(y2)
     z_list=pick_p(z2)
@@ -448,7 +451,9 @@ def flat_plate(x,y,z,s,d,r):
         info_list.append(info)
     
     ap_list=np.array(ap_list)  #폐곡선에 크로스되는 점들의 xyz 어레이
-    side_face(x_list,y_list,z_list,ap_list) 
+    side_face(x_list,y_list,z_list,ap_list) #하이드로겔의 옆면을 만든것. 아웃풋 해야함 
+    
+    
     info2_list=[]
     for j in range(int(len(info_list)/2)): 
         info2=[info_list[j][0],min(info_list[j][1],info_list[j][2]),
@@ -464,8 +469,41 @@ def flat_plate(x,y,z,s,d,r):
         base_sur.append(cro_point)
              
     base_sur=np.array(base_sur)
-    base_face(base_sur)
+    base_face(base_sur) #아랫면을 만든것 아웃풋 해야함 
     
+    add_point=output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list)
+    add_dic(add_point)
+    print(len(dic))
+    export(dic)
+#-----------아웃풋2,3: 위에 서 구한 실린더의 노드와 폐곡선과 만나는 노드, 페이스들을 모조리 추출한것----+
+def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list):
+    point=[]
+    for i in range(div_c) :
+        point.append([x1[i][0],y1[i][0],z1[i][0]])
+        point.append([x1[i][1],y1[i][1],z1[i][1]])
+    point.append([x2[0][0],y2[0][0],z2[0][0]])
+    point.append([x3[0][0],y3[0][0],z3[0][0]])
+    
+    for i in range(len(ap_list)):
+        point.append(ap_list[i])
+        
+    return point 
+
+def output3():
+    
+    pass
+
+def add_dic(point):
+    many=len(dic)
+    for i in range(len(point)):
+        dic[many+i+1]=point[i]
+        
+def export(dic):
+    f=open('./export.node','w')
+    f.write('{}  3  0  0\n'.format(len(dic)))
+    for i in range(len(dic)):
+        f.write('   {}    {}  {}  {}\n'.format(i,dic[i+1][0],dic[i+1][1],dic[i+1][2]))
+#-------------------------------------------------------------------------------------+
 def side_face(x_list,y_list,z_list,ap_list): #밑면이랑 폐곡선 크로스되는 지점 이용해서 메쉬 짠것 
     x_grid=[]
     y_grid=[]
@@ -524,12 +562,7 @@ def base_face(base_sur):
         z_list.append(z_l)
     
     x_grid, y_grid, z_grid =fit2(x_list, y_list, z_list)
-    print('x_grid=%s'%x_grid)
-    print('y_grid=%s'%y_grid)
-    print('z_grid=%s'%z_grid)
-    print(len(x_grid))
-    print(len(y_grid))
-    print(len(z_grid))
+
     ax.plot_surface(x_grid, y_grid, z_grid, color='blue', alpha=1)
 #--------array의 갯수를 맞추기 위한 함수(최댓값으로 맞춘다)--------------------+
 def fit2(a,b,c): #a는 여기서 x array list를, b는 y array list, c는 z array list를 의미한다
@@ -540,8 +573,7 @@ def fit2(a,b,c): #a는 여기서 x array list를, b는 y array list, c는 z arra
     for i in a:
         how_many.append(len(i))
     many= max(how_many)  # 가장 많은 어레이의 갯수를 찾고, 그 개수에 맞추어 나머지를 인터폴 레이트 함 
-    print('many=%s'%many)
-    print('len_a =%s'%len(a))
+
     for i in range(len(a)):
         f=interpolate.interp1d(a[i],b[i])
         a_new=np.linspace(a[i][0],a[i][-1],many,endpoint=True)
@@ -556,6 +588,44 @@ def fit2(a,b,c): #a는 여기서 x array list를, b는 y array list, c는 z arra
     
     return grid_a, grid_b, grid_c
 
+
+##-----------------tri_mesh----------------------------------------------------------------+
+#----------------body stl--------------------------------------------------+
+'''triang=mtri.Triangulation(xi,yi,zi)
+data = np.zeros(len(triang.triangles), dtype=mesh.Mesh.dtype)
+mobius_mesh = mesh.Mesh(data, remove_empty_areas=False)
+mobius_mesh.x[:] = xi[triang.triangles]
+mobius_mesh.y[:] = yi[triang.triangles]
+mobius_mesh.z[:] = zi[triang.triangles]
+mobius_mesh.save('mysurface.stl')'''
+
+def output1(xi,yi,zi): #body에 대한 아웃 노드와 페이스들 
+    point=[]
+    for i in range(div_z):
+        for j in range(div):
+            point.append(np.array([xi[i][j],yi[i][j],zi[i][0]]))
+    point=np.array(point)
+
+    numbering=[]
+    for i in range(div_z):
+        for j in range(div):
+            numbering.append(i*div+j+1)
+    dic={}
+    for i in range(len(numbering)):
+        dic[numbering[i]]=point[i]
+    
+    facet=[]
+    for i in range(div_z):
+        if i < div_z-1 :
+            for j in range(div):
+                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
+                    facet.append([4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
+                else :
+                    facet.append([4,div*i+j+1,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+    return dic, facet
+
+#-----------먼저 몸의 노드와 페이스들을 모조리 뽑는다-------------+    
+dic, facet=output1(xi,yi,zi)
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
     ''' 아래판 좌표와 노말 벡터의 기울기를 입력하면 폐곡선 위의 좌표를 찾아서 출력 '''
