@@ -15,7 +15,7 @@ from scipy.linalg import norm
 import stl
 from stl import mesh
 import matplotlib.tri as mtri
-
+import time
 ##-----------패러미터--------------------------------------------------+
 s=0.1 #폐곡선 표면부터 극판까지의 거리 
 d=0.1 #극판 두께
@@ -499,7 +499,8 @@ def add_dic(point):
         dic[many+i+1]=point[i]
         
 def export(dic):
-    f=open('./export.node','w')
+    now=time.localtime()
+    f=open('./export{}{}{}{}.node'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
     f.write('{}  3  0  0\n'.format(len(dic)))
     for i in range(len(dic)):
         f.write('   {}    {}  {}  {}\n'.format(i,dic[i+1][0],dic[i+1][1],dic[i+1][2]))
