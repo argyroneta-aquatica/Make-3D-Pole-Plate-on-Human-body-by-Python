@@ -20,10 +20,10 @@ import time
 s=0.1 #폐곡선 표면부터 극판까지의 거리 
 d=0.1 #극판 두께
 a=0.5 #극판의 반지름 
-div=100 #옆면을 나눈 수
-div_z=100 #축을 나눈 수 
+div=50 #옆면을 나눈 수
+div_z=50 #축을 나눈 수 
 div_c=50 #원판의 둘레를 나눈 수 
-
+now=time.localtime(time.time())
 #----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
@@ -471,35 +471,63 @@ def flat_plate(x,y,z,s,d,r):
     base_sur=np.array(base_sur)
     base_face(base_sur) #아랫면을 만든것 아웃풋 해야함 
     
-    add_point=output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list)
-    add_dic(add_point)
+    output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list)
     print(len(dic))
-    export(dic)
+    print(len(facet))
+    export1(dic,facet)
 #-----------아웃풋2,3: 위에 서 구한 실린더의 노드와 폐곡선과 만나는 노드, 페이스들을 모조리 추출한것----+
 def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list):
     point=[]
+    for i in range(len(ap_list)):
+        point.append(ap_list[i])
+        
     for i in range(div_c) :
         point.append([x1[i][0],y1[i][0],z1[i][0]])
         point.append([x1[i][1],y1[i][1],z1[i][1]])
     point.append([x2[0][0],y2[0][0],z2[0][0]])
     point.append([x3[0][0],y3[0][0],z3[0][0]])
     
-    for i in range(len(ap_list)):
-        point.append(ap_list[i])
-        
-    return point 
-
+    many=len(dic)
+    for i in range(len(point)):
+        dic[many+i+1]=point[i]
+    
+    for i in range(2): #층이 세개지만 면으로 이루어진 층은 두개의 층이다
+        for j in range(div_c): 
+            if j < div_c-1: #j가 0~48까지, 즉 노드 넘버로는 1~49
+                facet.append([4,many+i*div_c+j+1,many+i*div_c+j+2,many+(i+1)*div_c+j+2,many+(i+1)*div_c+j+1])
+                facet.append([3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+j+2,many+3*div_c+i+1])
+            else:
+                facet.append([4,many+i*div_c+j+1,many+i*div_c+0+1,many+(i+1)*div_c+0+1,many+(i+1)*div_c+j+1])
+                facet.append([3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+0+1,many+3*div_c+i+1])
+                  
 def output3():
     
     pass
 
-def add_dic(point):
-    many=len(dic)
-    for i in range(len(point)):
-        dic[many+i+1]=point[i]
         
-def export(dic):
-    now=time.localtime()
+def export1(dic,facet):
+    f=open('./export{}{}{}{}.poly'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
+    f.write('  # Part 1 - node list\n')
+    f.write('  # node count, 3 dim, no attribute, no boundary marker\n')
+    f.write('  {}  3  0  0\n'.format(len(dic)))
+    f.write('  # Node index, node coordinates\n')
+    for i in range(len(dic)):
+        f.write('  {}  {} {} {}\n'.format(i+1,dic[i+1][0],dic[i+1][1],dic[i+1][2]))
+    f.write('\n  # Part 2 - facet list\n')
+    f.write('  # facet count, no boundary marker\n')
+    f.write('  {}  0\n'.format(len(facet)))
+    f.write('  # facets\n')
+    for i in range(len(facet)):
+        if facet[i][0]==4:
+            f.write('  1\n  {}  {} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3],facet[i][4]))
+        elif facet[i][0]==3:
+            f.write('  1\n  {}  {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3]))
+    f.write('\n  # Part 3 - hole list\n')
+    f.write('  0            # no hole\n')
+    f.write('\n  # Part 4 - region list\n')
+    f.write('  0            # no region')
+    
+def export2(dic,facet):
     f=open('./export{}{}{}{}.node'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
     f.write('{}  3  0  0\n'.format(len(dic)))
     for i in range(len(dic)):
