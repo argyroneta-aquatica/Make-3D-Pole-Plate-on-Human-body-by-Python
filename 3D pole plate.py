@@ -17,12 +17,12 @@ from stl import mesh
 import matplotlib.tri as mtri
 import time
 ##-----------패러미터--------------------------------------------------+
-s=0.1 #폐곡선 표면부터 극판까지의 거리 
-d=0.1 #극판 두께
-a=0.5 #극판의 반지름 
-div=50 #옆면을 나눈 수
-div_z=50 #축을 나눈 수 
-div_c=50 #원판의 둘레를 나눈 수 
+s=1 #폐곡선 표면부터 극판까지의 거리 
+d=1 #극판 두께
+a=2 #극판의 반지름 
+div=20 #옆면을 나눈 수
+div_z=20 #축을 나눈 수 
+div_c=10 #원판의 둘레를 나눈 수 
 now=time.localtime(time.time())
 #----------그래프 조정-----------------------------------------------------+
 fig = plt.figure()
@@ -457,13 +457,13 @@ def flat_plate(x,y,z,s,d,r):
     info2_list=[]
     for j in range(int(len(info_list)/2)): 
         info2=[info_list[j][0],min(info_list[j][1],info_list[j][2]),
-               max(info_list[49-j][1],info_list[49-j][2]),info_list[j][3]]
+               max(info_list[div_c-1-j][1],info_list[div_c-1-j][2]),info_list[j][3]]
         info2_list.append(info2)
     
     base_sur=[]
     for k in range(len(info2_list)):
         cro_point=cross_point2(info2_list[k][0],info2_list[k][1],info2_list[k][2],info2_list[k][3])
-        cro_point.insert(0,ap_list[49-k])
+        cro_point.insert(0,ap_list[div_c-1-k])
         cro_point.append(ap_list[k])
         cro_point=np.array(cro_point) #원판의 시작점과 끝점, 중간에 교차되는 점들을 모두 구한 array다
         base_sur.append(cro_point)
@@ -483,7 +483,9 @@ def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list):
         
     for i in range(div_c) :
         point.append([x1[i][0],y1[i][0],z1[i][0]])
+    for i in range(div_c) : # 합치면 안된다. 노드의 순서가 달라짐 
         point.append([x1[i][1],y1[i][1],z1[i][1]])
+        
     point.append([x2[0][0],y2[0][0],z2[0][0]])
     point.append([x3[0][0],y3[0][0],z3[0][0]])
     
@@ -504,28 +506,23 @@ def output3():
     
     pass
 
-        
 def export1(dic,facet):
     f=open('./export{}{}{}{}.poly'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
-    f.write('  # Part 1 - node list\n')
-    f.write('  # node count, 3 dim, no attribute, no boundary marker\n')
-    f.write('  {}  3  0  0\n'.format(len(dic)))
-    f.write('  # Node index, node coordinates\n')
+    f.write('# Part 1 - node list\n')
+    f.write('{} 3\n'.format(len(dic)))
     for i in range(len(dic)):
-        f.write('  {}  {} {} {}\n'.format(i+1,dic[i+1][0],dic[i+1][1],dic[i+1][2]))
-    f.write('\n  # Part 2 - facet list\n')
-    f.write('  # facet count, no boundary marker\n')
-    f.write('  {}  0\n'.format(len(facet)))
-    f.write('  # facets\n')
+        f.write('{} {} {} {}\n'.format(i+1,dic[i+1][0],dic[i+1][1],dic[i+1][2]))
+    f.write('# Part 2 - facet list\n')
+    f.write('{}\n'.format(len(facet)))
     for i in range(len(facet)):
         if facet[i][0]==4:
-            f.write('  1\n  {}  {} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3],facet[i][4]))
+            f.write('1 0\n{} {} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3],facet[i][4]))
         elif facet[i][0]==3:
-            f.write('  1\n  {}  {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3]))
-    f.write('\n  # Part 3 - hole list\n')
-    f.write('  0            # no hole\n')
-    f.write('\n  # Part 4 - region list\n')
-    f.write('  0            # no region')
+            f.write('1 0\n{} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3]))
+    f.write('# Part 3 - hole list\n')
+    f.write('0 # no hole')
+    '''f.write('\n  # Part 4 - region list\n')
+    f.write('  0            # no region')'''
     
 def export2(dic,facet):
     f=open('./export{}{}{}{}.node'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
@@ -644,8 +641,20 @@ def output1(xi,yi,zi): #body에 대한 아웃 노드와 페이스들
         dic[numbering[i]]=point[i]
     
     facet=[]
-    for i in range(div_z):
-        if i < div_z-1 :
+    for i in range(div_z-1):
+        if i==0:
+            for j in range(div):
+                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
+                    facet.append([3,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
+                else :
+                    facet.append([3,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+        elif i==div_z-2:
+            for j in range(div):
+                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
+                    facet.append([3,div*i+j+1,div*i+j+2,div*(i+1)+j+2])
+                else :
+                    facet.append([3,div*i+j+1,div*i+0+1,div*(i+1)+0+1])
+        else :
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
                     facet.append([4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
@@ -655,6 +664,7 @@ def output1(xi,yi,zi): #body에 대한 아웃 노드와 페이스들
 
 #-----------먼저 몸의 노드와 페이스들을 모조리 뽑는다-------------+    
 dic, facet=output1(xi,yi,zi)
+export1(dic, facet)
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
     ''' 아래판 좌표와 노말 벡터의 기울기를 입력하면 폐곡선 위의 좌표를 찾아서 출력 '''
