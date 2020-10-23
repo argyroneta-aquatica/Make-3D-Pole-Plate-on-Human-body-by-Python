@@ -16,6 +16,7 @@ import stl
 from stl import mesh
 import matplotlib.tri as mtri
 import time
+import math 
 ##-----------패러미터--------------------------------------------------+
 s=0.5 #폐곡선 표면부터 극판까지의 거리 
 d=0.5 #극판 두께
@@ -105,7 +106,7 @@ def cor(p):
             print(d)
 
 #-------------거리가까운 메시의 좌표특정을 위한 거 ---------------------+
-def distance(x,y,z):
+def distance2(x,y,z):
     d_1=[]
     for i in range(len(zi)):
         c=abs(z-zi[i])
@@ -117,6 +118,19 @@ def distance(x,y,z):
         d_2.append(c)
     e_2=d_2.index(min(d_2))
     return e_1, e_2  #z가 몇번째인지 추출하고, x,y를 추출 하는 것이다  
+'''리턴값을 e로해서, 좌표자체를 특정하는게 아니라 좌표가 리스트에서 존재하는 
+위치를 특정하는거임 여기서 e_1은 z의 좌표 e_2 x,y 의 좌표 '''
+
+def distance(x,y,z): #진짜 최단거리 찾는 방법 
+    d_1=[]
+    for i in range(div_z):
+        for j in range(div):
+            c=(x-xi[i][j])**2+(y-yi[i][j])**2+(z-zi[i][0])**2
+            d_1.append(c)
+    e=d_1.index(min(d_1))
+    e1=math.floor(e/div)
+    e2=e-div*e1
+    return e1, e2  #z가 몇번째인지 추출하고, x,y를 추출 하는 것이다  
 '''리턴값을 e로해서, 좌표자체를 특정하는게 아니라 좌표가 리스트에서 존재하는 
 위치를 특정하는거임 여기서 e_1은 z의 좌표 e_2 x,y 의 좌표 '''
 
@@ -454,8 +468,7 @@ def flat_plate(x,y,z,s,d,r):
     
     ap_list=np.array(ap_list)  #폐곡선에 크로스되는 점들의 xyz 어레이
     side_face(x_list,y_list,z_list,ap_list) #하이드로겔의 옆면을 만든것. 아웃풋 해야함 
-    cross_point3(ap_list, facet_num) # 구 face 위의 grid 와 크로스되는 지점들을 구하는것 
-    
+ #   cross_point3(ap_list, facet_num, p) # 구 face 위의 grid 와 크로스되는 지점들을 구하는것 
     
     info2_list=[]
     for j in range(int(len(info_list)/2)): 
@@ -475,9 +488,30 @@ def flat_plate(x,y,z,s,d,r):
     base_face(base_sur) #아랫면을 만든것 아웃풋 해야함 
     
     output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list)
+    near_point(ap_list)
     print(len(dic))
     print(len(facet))
     export1(dic,facet)
+    
+#-----------니어 포인트---------------------------------------------------#
+def near_point(ap_list):
+    many=len(dic)
+    many2=len(facet)
+    point_num=[]
+    for i in range(len(ap_list)):
+        e1,e2=distance(ap_list[i][0],ap_list[i][1],ap_list[i][2])
+        point_num.append(e1*div+e2+1)
+    
+    for i in range(len(point_num)):
+        if i<len(point_num)-1: 
+            facet[many2+2*i+1]=[3,3,many-(2*div_c+2)+i+1,many-(2*div_c+2)+i+2,point_num[i]] #ap_list_num=many-(3*div_ci+2)+i+1
+            facet[many2+2*i+2]=[3,3,many-(2*div_c+2)+i+2,point_num[i],point_num[i+1]]
+        
+        else :
+            facet[many2+2*i+1]=[3,3,many-(2*div_c+2)+i+1,many-(2*div_c+2)+0,point_num[i]] 
+            facet[many2+2*i+2]=[3,3,many-(2*div_c+2)+0,point_num[i],point_num[0]]
+    print(point_num)
+            
 #-----------아웃풋2,3: 위에 서 구한 실린더의 노드와 폐곡선과 만나는 노드, 페이스들을 모조리 추출한것----+
 def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list):
     point=[]
@@ -496,27 +530,138 @@ def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,ap_list):
     for i in range(len(point)):
         dic[many+i+1]=point[i]
     
+    many2=len(facet)
+    facet_list=[]
     for i in range(2): #층이 세개지만 면으로 이루어진 층은 두개의 층이다
         for j in range(div_c): 
             if j < div_c-1: #j가 0~48까지, 즉 노드 넘버로는 1~49
-                facet.append([3-i,4,many+i*div_c+j+1,many+i*div_c+j+2,many+(i+1)*div_c+j+2,many+(i+1)*div_c+j+1])
-                facet.append([2,3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+j+2,many+3*div_c+i+1])
+                facet_list.append([2,3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+j+2,many+3*div_c+i+1])
             else:
-                facet.append([3-i,4,many+i*div_c+j+1,many+i*div_c+0+1,many+(i+1)*div_c+0+1,many+(i+1)*div_c+j+1])
-                facet.append([2,3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+0+1,many+3*div_c+i+1])
-
+                facet_list.append([2,3,many+(i+1)*div_c+j+1,many+(i+1)*div_c+0+1,many+3*div_c+i+1])
+    for j in range(div_c): 
+            if j < div_c-1: #j가 0~48까지, 즉 노드 넘버로는 1~49
+                facet_list.append([2,4,many+1*div_c+j+1,many+1*div_c+j+2,many+(1+1)*div_c+j+2,many+(1+1)*div_c+j+1])
+            else:
+                facet_list.append([2,4,many+1*div_c+j+1,many+1*div_c+0+1,many+(1+1)*div_c+0+1,many+(1+1)*div_c+j+1])
     
+    for i in range(len(facet_list)):
+        facet[many2+i+1]=facet_list[i]
 
-def cross_point3(ap_list, facet_num):
-    for i in range(len(facet_num)-1):    
-        if facet_num[i][0]==facet_num[i+1][0]:
-            if facet_num[i][1]<facet_num[i+1][1]: # xy축 방향의 크로스 되는 점이 새롭게 생길 때
-                ap_list[i+1]-ap_list[i]
-                pass 
-
+'''def cross_point3(ap_list, facet_num,p): #facet_num 은 각 ap_list가 속해있는 facet의 넘버, p는 극판 아랫면의 리스트  
+    many=len(dic)
+    many2=len(facet)
+    for i in range(len(facet_num)):    
+        if i<len(facet_num)-1:
+            if facet_num[i][0]==facet_num[i+1][0]:
+                if not facet_num[i][1]==facet_num[i+1][1]: # xy축 방향의 크로스 되는 점이 새롭게 생길 때
+                    z_num=facet_num[i][0]
+                    xy_num=min(facet_num[i][1],facet_num[i+1][1])
+                    direction=0 #기본 오른쪽 방향
+                    if xy_num==facet_num[i][1]: # 같으면 왼쪽 방향, 즉 i i+1순서로 커지는 경우에, 내가 구하고자 하는건 그 반대인 왼쪽 방향임 
+                        direction=-1
+                    v1=np.array([xi[z_num][xy_num],yi[z_num][xy_num],zi[z_num][0]])
+                    v2=np.array([xi[z_num-1][xy_num],yi[z_num-1][xy_num],zi[z_num][0]])
+                    v, t= cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v2)
+                    dic[many+i+1]=v
+                    del facet[div*(facet_num[i][0]-1)+facet_num[i][1]] #이거 바꿔야 할 수도 
+                    del facet[div*(facet_num[i+1][0]-1)+facet_num[i+1][1]]
+                    facet[many2+8*(i+1)-7]=[1,3,div*(z_num-1)+facet_num[i][1],
+                                      div*(z_num-1)+facet_num[i][1]+1,many-(3*div_c+2)+i+1] #many-(3*div_c+2)+i+1는 ap_list[i]의 넘버링을 의미 
+                    facet[many2+8*(i+1)-6]=[1,3,div*(z_num)+facet_num[i][1],div*(z_num)+facet_num[i][1]+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-5]=[1,3,div*(z_num-1)+xy_num,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-4]=[1,3,div*(z_num)+xy_num,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-3]=[1,3,div*(z_num)+xy_num+1+direction,
+                                      div*(z_num-1)+xy_num+1+direction,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-2]=[3,3,many-(3*div_c+2)+i+1,many+i+1,many-(2*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-1]=[3,3,many-(3*div_c+2)+i+2,many+i+1,many-(2*div_c+2)+i+2]
+                    facet[many2+8*(i+1)]=[3,3,many-(2*div_c+2)+i+1,many+i+1,many-(2*div_c+2)+i+2]
+                    
+                elif facet_num[i][1]==facet_num[i+1][1]:
+                    facet[many2+i+1]=[2,4,many-(3*div_c+2)+i+1,many-(3*div_c+2)+i+2,
+                                      many-(2*div_c+2)+i+1,many-(2*div_c+2)+i+2] #ap_list i, i+1, 아랫판 i, i+1
+            
+            elif not facet_num[i][0]==facet_num[i+1][0]:
+                if facet_num[i][1]==facet_num[i+1][1]:
+                    xy_num=facet_num[i][1]
+                    z_num=min(facet_num[i][0],facet_num[i+1][0])
+                    direction=0 #기본 위쪽 방향 
+                    if z_num==facet_num[i][0]: # 같으면 아래쪽 방향, 즉 i i+1순서로 커지는 경우에, 내가 구하고자 하는건 그 반대인 아래쪽 방향임 
+                        direction=-1
+                    v1=np.array([xi[z_num][facet_num[i][1]],yi[z_num][facet_num[i][1]],zi[z_num][0]])
+                    v2=np.array([xi[z_num][facet_num[i][1]-1],yi[z_num][facet_num[i][1]-1],zi[z_num][0]])
+                    v, t = cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v2)
+                    
+                    dic[many+i+1]=v
+                    del facet[div*(facet_num[i][0]-1)+facet_num[i][1]]
+                    del facet[div*(facet_num[i+1][0]-1)+facet_num[i+1][1]]
+                    facet[many2+8*(i+1)-7]=[1,3,div*(facet_num[i][0]-1)+facet_num[i][1],
+                                      div*(facet_num[i][0])+facet_num[i][1],many-(3*div_c+2)+i+1] #many-(3*div_c+2)+i+1는 ap_list[i]의 넘버링을 의미 
+                    facet[many2+8*(i+1)-6]=[1,3,div*(facet_num[i][0]-1)+facet_num[i][1]+1,
+                                            div*(facet_num[i][0])+facet_num[i][1]+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-5]=[1,3,div*(z_num)+xy_num,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-4]=[1,3,div*(z_num)+xy_num+1,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-3]=[1,3,div*(z_num+direction)+xy_num,
+                                      div*(facet_num[i][0]+direction)+xy_num+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-2]=[3,3,many-(3*div_c+2)+i+1,many+i+1,many-(2*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-1]=[3,3,many-(3*div_c+2)+i+2,many+i+1,many-(2*div_c+2)+i+2]
+                    facet[many2+8*(i+1)]=[3,3,many-(2*div_c+2)+i+1,many+i+1,many-(2*div_c+2)+i+2]
+                
+                elif not facet_num[i][1]==facet_num[i+1][1]:
+                    xy_num=min(facet_num[i][1],facet_num[i+1][1])   
+                    z_num=min(facet_num[i][0],facet_num[i+1][0])
+                    v1=np.array([xi[z_num][xy_num],yi[z_num][xy_num],zi[z_num][0]])
+                    v2=np.array([xi[z_num][xy_num+1],yi[z_num][xy_num+1],zi[z_num][0]])
+                    v3=np.array([xi[z_num+1][xy_num],yi[z_num+1][xy_num],zi[z_num][0]])
+                    v4=np.array([xi[z_num][xy_num-1],yi[z_num][xy_num-1],zi[z_num][0]])
+                    v5=np.array([xi[z_num-1][xy_num],yi[z_num-1][xy_num],zi[z_num][0]])
+                    xy_direction=1
+                    z_direction=1
+                    if xy_num==facet_num[i][1]:
+                        xy_direction=0
+                    if z_num==facet_num[i][0]:
+                        z_direction=0
+                    
+                    del facet[div*(facet_num[i][0]-1)+facet_num[i][1]]
+                    del facet[div*(facet_num[i+1][0]-1)+facet_num[i+1][1]]
+                    
+                    c1, t1 = cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v2)
+                    c2, t2 = cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v3)
+                    c3, t3 = cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v4)
+                    c4, t4 = cross_plane_vector(ap_list[i],ap_list[i+1],p[i],p[i+1],v1,v5)
+                    
+                    #중앙점의 위를 자나냐 아래를 지나냐를 기준으로 나눈것. 위면 1, 아래면 0 이다. 
+                    if t3==0 and t4==0 : 
+                        case=1
+                    if t4==0 and t1==0 : 
+                        case=1
+                    if t1==0 and t2==0 : 
+                        case=0
+                    if t2==0 and t3==0 : 
+                        case=0
+                    
+                    direction=[xy_direction,z_direction,case] # 총 8가지의 케이스가 존재하게 된다.
+                    
+                    facet[many2+8*(i+1)-7]=[1,3,div*(facet_num[i][0]-1)+facet_num[i][1],
+                                      div*(facet_num[i][0])+facet_num[i][1],many-(3*div_c+2)+i+1] #many-(3*div_c+2)+i+1는 ap_list[i]의 넘버링을 의미 
+                    facet[many2+8*(i+1)-6]=[1,3,div*(facet_num[i][0]-1)+facet_num[i][1]+1,
+                                            div*(facet_num[i][0])+facet_num[i][1]+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-5]=[1,3,div*(z_num)+xy_num,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-4]=[1,3,div*(z_num)+xy_num+1,many+i+1,many-(3*div_c+2)+i+1]
+                    facet[many2+8*(i+1)-3]=[1,3,div*(z_num+direction)+xy_num,
+                                      div*(facet_num[i][0]+direction)+xy_num+1,many-(3*div_c+2)+i+1]'''
+                    
+                    
+                    
+                    
 def cross_plane_vector(p1,p2,p3,p4,v1,v2):
     a,b,c,d=face(p1,p2,p3,p4)
-    
+    vector=v1-v2
+    abc=np.array([a,b,c])
+    t=-1*(np.dot(abc,v2)+d)/np.dot(abc,vector)
+    if not 0<=t<=1:
+        t==0
+    v=v2+t*vector
+    return v, t
     
 def export1(dic,facet):
     f=open('./export{}{}{}{}.poly'.format(now.tm_mon,now.tm_mday,now.tm_hour,now.tm_min),'w')
@@ -531,10 +676,10 @@ def export1(dic,facet):
     f.write('{} 1\n'.format(len(facet)))
     f.write('# facets\n')
     for i in range(len(facet)):
-        if facet[i][1]==4:
-            f.write('1 0 {}\n{} {} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3],facet[i][4],facet[i][5]))
-        elif facet[i][1]==3:
-            f.write('1 0 {}\n{} {} {} {}\n'.format(facet[i][0],facet[i][1],facet[i][2],facet[i][3],facet[i][4]))
+        if facet[i+1][1]==4:
+            f.write('1 0 {}\n{} {} {} {} {}\n'.format(facet[i+1][0],facet[i+1][1],facet[i+1][2],facet[i+1][3],facet[i+1][4],facet[i+1][5]))
+        elif facet[i+1][1]==3:
+            f.write('1 0 {}\n{} {} {} {}\n'.format(facet[i+1][0],facet[i+1][1],facet[i+1][2],facet[i+1][3],facet[i+1][4]))
     f.write('# Part 3 - hole list\n')
     f.write('0 # no hole\n')
     f.write('# Part 4 - region list\n')
@@ -656,26 +801,38 @@ def output1(xi,yi,zi): #body에 대한 아웃 노드와 페이스들
     for i in range(len(numbering)):
         dic[numbering[i]]=point[i]
     
-    facet=[]
+    numbering2=[] #facet의 넘버링 
+    for i in range(div_z-1):
+        for j in range(div):
+            numbering2.append(i*div+j+1)
+            
+    facet_list=[]
+    facet={}
     for i in range(div_z-1):# 순서대로 바운더리 마커, 노드수, 노드 넘버 
         if i==0:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([1,3,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1]) #맨앞에 1은 바운데리 마커, 3은 노드 수  
+                    facet_list.append([1,3,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1]) #맨앞에 1은 바운데리 마커, 3은 노드 수  
                 else :
-                    facet.append([1,3,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+                    facet_list.append([1,3,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+        
+        elif 0<i<div_z-2 :
+            for j in range(div):
+                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
+                    facet_list.append([1,4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
+                else :
+                    facet_list.append([1,4,div*i+j+1,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+                    
         elif i==div_z-2:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([1,3,div*i+j+1,div*i+j+2,div*(i+1)+j+2])
+                    facet_list.append([1,3,div*i+j+1,div*i+j+2,div*(i+1)+j+2])
                 else :
-                    facet.append([1,3,div*i+j+1,div*i+0+1,div*(i+1)+0+1])
-        else :
-            for j in range(div):
-                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([1,4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
-                else :
-                    facet.append([1,4,div*i+j+1,div*i+0+1,div*(i+1)+0+1,div*(i+1)+j+1])
+                    facet_list.append([1,3,div*i+j+1,div*i+0+1,div*(i+1)+0+1])
+    
+    for i in range(len(numbering2)):
+        facet[numbering2[i]]=facet_list[i]
+    
     return dic, facet
 
 def add_output2(xi2,yi2,zi2):
@@ -687,31 +844,41 @@ def add_output2(xi2,yi2,zi2):
     point=np.array(point)
     for i in range(len(point)):
         dic[many+i+1]=point[i]
-        
+             
+    facet_list=[]
+    
     for i in range(div_z-1):# 순서대로 바운더리 마커, 노드수, 노드 넘버 
         if i==0:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([4,3,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1]) #맨앞에 4은 바운데리 마커, 3은 노드 수  
+                    facet_list.append([4,3,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1]) #맨앞에 4은 바운데리 마커, 3은 노드 수  
                 else :
-                    facet.append([4,3,many+div*i+0+1,many+div*(i+1)+0+1,many+div*(i+1)+j+1])
+                    facet_list.append([4,3,many+div*i+0+1,many+div*(i+1)+0+1,many+div*(i+1)+j+1])
+        
+        elif 0<i<div_z-2 :
+            for j in range(div):
+                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
+                    facet_list.append([4,4,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1])
+                else :
+                    facet_list.append([4,4,many+div*i+j+1,many+div*i+0+1,many+div*(i+1)+0+1,many+div*(i+1)+j+1])
+                    
         elif i==div_z-2:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([4,3,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2])
+                    facet_list.append([4,3,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2])
                 else :
-                    facet.append([4,3,many+div*i+j+1,many+div*i+0+1,many+div*(i+1)+0+1])
-        else :
-            for j in range(div):
-                if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet.append([4,4,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1])
-                else :
-                    facet.append([4,4,many+div*i+j+1,many+div*i+0+1,many+div*(i+1)+0+1,many+div*(i+1)+j+1])
-    
+                    facet_list.append([4,3,many+div*i+j+1,many+div*i+0+1,many+div*(i+1)+0+1])
+                    
+    many2=len(facet)
+    for i in range(len(facet_list)):
+        facet[many2+i+1]=facet_list[i]
+        
 #-----------먼저 몸의 노드와 페이스들을 모조리 뽑는다-------------+    
 dic, facet=output1(xi,yi,zi)
 add_output2(xi2,yi2,zi2)
 export1(dic, facet)
+print(len(dic))
+print(len(facet))
 #-----------노말벡터 그리기-----------------------------------+
 def normal(m,lx,ly,z):
     ''' 아래판 좌표와 노말 벡터의 기울기를 입력하면 폐곡선 위의 좌표를 찾아서 출력 '''
