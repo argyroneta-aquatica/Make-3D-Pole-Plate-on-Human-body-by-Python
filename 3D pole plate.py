@@ -22,8 +22,8 @@ s=1 #폐곡선 표면부터 극판까지의 거리
 d_1=1 #세라믹 두께
 d_2=1 #극판 두께
 a=2 #극판의 반지름 
-div=100 #옆면을 나눈 수
-div_z=100 #축을 나눈 수 
+div=75 #옆면을 나눈 수
+div_z=75 #축을 나눈 수 
 div_c=150 #원판의 둘레를 나눈 수 
 r_1=10 # skin
 r_2=9 # bone 
@@ -552,8 +552,8 @@ def near_point(ap_list):
     
     for i in range(len(point_num)):
         if i<len(point_num)-1: 
-            facet[many2+2*i+1]=[0,3,many-(3*div_c+3)+i+1,many-(3*div_c+3)+i+2,point_num[i]] #ap_list_num=many-(3*div_ci+2)+i+1
-            facet[many2+2*i+2]=[0,3,many-(3*div_c+3)+i+2,point_num[i],point_num[i+1]]
+            facet[many2+2*i+1]=[-1,3,many-(3*div_c+3)+i+1,many-(3*div_c+3)+i+2,point_num[i]] #ap_list_num=many-(3*div_ci+2)+i+1
+            facet[many2+2*i+2]=[-1,3,many-(3*div_c+3)+i+2,point_num[i],point_num[i+1]]
        
             
 #-----------아웃풋2,3: 위에 서 구한 실린더의 노드와 폐곡선과 만나는 노드, 페이스들을 모조리 추출한것----+
@@ -580,7 +580,7 @@ def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4,ap_list):
     for i in range(2): #층이 세개여서 면으로 이루어진 층은 세개의 층이다
         for j in range(div_c): 
             if j < div_c-1: #j가 0~48까지, 즉 노드 넘버로는 1~49, 극판의 동그란 면 만드는 것 
-                facet_list.append([0,3,many+(i)*div_c+j+1,many+(i)*div_c+j+2,many+3*div_c+i+1])
+                facet_list.append([-1,3,many+(i)*div_c+j+1,many+(i)*div_c+j+2,many+3*div_c+i+1])
     
     for j in range(div_c): 
             if j < div_c-1: #i=2 일때만 따로 만들어 준 것이다. 바운데리를 나눠야 해서 
@@ -590,7 +590,7 @@ def output2(x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4,ap_list):
     for i in range(2): #
         for j in range(div_c): 
                 if j < div_c-1: #j가 0~48까지, 즉 노드 넘버로는 1~49, 극판의 옆면만드는 것 
-                    facet_list.append([0,4,many+i*div_c+j+1,many+i*div_c+j+2,many+(i+1)*div_c+j+2,many+(i+1)*div_c+j+1])
+                    facet_list.append([-1,4,many+i*div_c+j+1,many+i*div_c+j+2,many+(i+1)*div_c+j+2,many+(i+1)*div_c+j+1])
             
     for i in range(len(facet_list)):
         facet[many2+i+1]=facet_list[i]
@@ -868,19 +868,19 @@ def output1(xi,yi,zi): #body에 대한 아웃 노드와 페이스들
         if i==0:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,3,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1]) #맨앞에 1은 바운데리 마커, 3은 노드 수  
+                    facet_list.append([-1,3,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1]) #맨앞에 1은 바운데리 마커, 3은 노드 수  
                 
         
         elif 0<i<div_z-2 :
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
+                    facet_list.append([-1,4,div*i+j+1,div*i+j+2,div*(i+1)+j+2,div*(i+1)+j+1])
                
                     
         elif i==div_z-2:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,3,div*i+j+1,div*i+j+2,div*(i+1)+j+2])
+                    facet_list.append([-1,3,div*i+j+1,div*i+j+2,div*(i+1)+j+2])
                
     
     for i in range(len(facet_list)):
@@ -910,17 +910,17 @@ def add_output2(xi2,yi2,zi2):
         if i==0:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,3,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1]) #맨앞에 4은 바운데리 마커, 3은 노드 수  
+                    facet_list.append([-1,3,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1]) #맨앞에 4은 바운데리 마커, 3은 노드 수  
         
         elif 0<i<div_z-2 :
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,4,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1])
+                    facet_list.append([-1,4,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2,many+div*(i+1)+j+1])
             
         elif i==div_z-2:
             for j in range(div):
                 if j < div-1: #j가 0~98까지, 즉 노드 넘버로는 1~99
-                    facet_list.append([0,3,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2])
+                    facet_list.append([-1,3,many+div*i+j+1,many+div*i+j+2,many+div*(i+1)+j+2])
                        
     many2=len(facet)
     for i in range(len(facet_list)):
